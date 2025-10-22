@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çorlu FM - Canlı Radyo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #121212;
+            font-family: 'Sofia Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+        
+        .iframe-container {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            overflow: hidden;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            z-index: 1000;
+        }
+        
+        .loading.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        🎵 Çorlu FM Yükleniyor...
+    </div>
+    
+    <div class="iframe-container">
+        <iframe 
+            id="playerFrame"
+            src="player.html" 
+            allow="autoplay; fullscreen"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups">
+        </iframe>
+    </div>
+
+    <script>
+        const iframe = document.getElementById('playerFrame');
+        const loading = document.getElementById('loading');
+        
+        iframe.addEventListener('load', () => {
+            loading.classList.add('hidden');
+        });
+        
+        // Iframe yüklenme hatası
+        iframe.addEventListener('error', () => {
+            loading.innerHTML = '❌ Player yüklenemedi. Lütfen sayfayı yenileyin.';
+        });
+    </script>
+</body>
+</html>
