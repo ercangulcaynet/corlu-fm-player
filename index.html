@@ -377,6 +377,20 @@
             return `${url}${separator}_=${Date.now()}`;
         };
 
+        const fetchWithCors = async (url, options = {}) => {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    return response;
+                }
+            } catch (error) {
+                console.warn('Doğrudan istek başarısız, proxy deneniyor:', error);
+            }
+
+            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            return fetch(proxiedUrl, options);
+        };
+
         const playerEl = document.querySelector('#radioPlayer');
         if (!playerEl) {
             return;
@@ -478,7 +492,7 @@
             }
 
             try {
-                const response = await fetch(CACHE_BUSTER(statsEndpoint), { cache: 'no-store' });
+                const response = await fetchWithCors(CACHE_BUSTER(statsEndpoint), { cache: 'no-store' });
                 if (!response.ok) {
                     throw new Error('İstatistik isteği başarısız oldu');
                 }
