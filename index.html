@@ -1,83 +1,3 @@
-<?php
-// XML Stats Proxy - Tek dosya içinde
-if (isset($_GET['stats'])) {
-    header('Content-Type: application/json');
-    header('Access-Control-Allow-Origin: *');
-    
-    $xmlUrl = 'https://sssx.radyosfer.com/corlufm/stats?sid=1';
-    
-    try {
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 10,
-                'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            ]
-        ]);
-        
-        $xmlContent = file_get_contents($xmlUrl, false, $context);
-        
-        if ($xmlContent === false) {
-            throw new Exception('XML içeriği alınamadı');
-        }
-        
-        $xml = simplexml_load_string($xmlContent);
-        
-        if ($xml === false) {
-            throw new Exception('XML parse edilemedi');
-        }
-        
-        $songTitle = (string)$xml->SONGTITLE ?? 'Canlı Yayın';
-        $serverTitle = (string)$xml->SERVERTITLE ?? 'Çorlu FM';
-        $listeners = (int)$xml->CURRENTLISTENERS ?? 0;
-        $streamStatus = (string)$xml->STREAMSTATUS ?? '0';
-        
-        $artist = '';
-        $track = '';
-        
-        if (strpos($songTitle, ' - ') !== false) {
-            $parts = explode(' - ', $songTitle, 2);
-            $artist = trim($parts[0]);
-            $track = trim($parts[1]);
-        } else {
-            $track = $songTitle;
-        }
-        
-        $response = [
-            'success' => true,
-            'data' => [
-                'songTitle' => $track ?: $songTitle,
-                'artist' => $artist ?: $serverTitle,
-                'serverTitle' => $serverTitle,
-                'listeners' => $listeners,
-                'isOnline' => $streamStatus === '1',
-                'rawSong' => $songTitle
-            ],
-            'timestamp' => time()
-        ];
-        
-        echo json_encode($response, JSON_UNESCAPED_UNICODE);
-        exit;
-        
-    } catch (Exception $e) {
-        $response = [
-            'success' => false,
-            'error' => $e->getMessage(),
-            'data' => [
-                'songTitle' => 'Canlı Yayın',
-                'artist' => 'Çorlu FM',
-                'serverTitle' => 'Çorlu FM',
-                'listeners' => 0,
-                'isOnline' => true,
-                'rawSong' => 'Canlı Yayın'
-            ],
-            'timestamp' => time()
-        ];
-        
-        echo json_encode($response, JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-}
-?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -249,6 +169,17 @@ if (isset($_GET['stats'])) {
             font-size: 20px;
         }
 
+        .status-message {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
         audio {
             display: none;
         }
@@ -325,6 +256,10 @@ if (isset($_GET['stats'])) {
                     <strong id="stationName">Çorlu FM</strong>
                 </div>
             </div>
+            
+            <div class="status-message" id="statusMessage">
+                Veriler yükleniyor...
+            </div>
         </div>
     </div>
 
@@ -344,47 +279,163 @@ document.addEventListener('DOMContentLoaded', () => {
     const stationNameEl = document.getElementById('stationName');
     const coverArtEl = document.getElementById('coverArt');
     const playerEl = document.getElementById('radioPlayer');
+    const statusMessageEl = document.getElementById('statusMessage');
 
     const streamUrl = 'https://sssx.radyosfer.com/corlufm/stream';
+    const statsUrl = 'https://sssx.radyosfer.com/corlufm/stats?sid=1';
     const defaultArt = 'http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png';
     
     let isPlaying = false;
     let autoStartArmed = true;
 
+    // CORS proxy servisleri
+    const corsProxies = [
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.io/?',
+        'https://cors-anywhere.herokuapp.com/',
+        'https://thingproxy.freeboard.io/fetch/'
+    ];
+
+    // XML'i parse et
+    const parseStatsXml = (xmlText) => {
+        try {
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(xmlText, 'application/xml');
+            
+            const parseError = xml.querySelector('parsererror');
+            if (parseError) {
+                throw new Error('XML parsing hatası');
+            }
+
+            const getValue = (tag) => {
+                const node = xml.getElementsByTagName(tag)[0];
+                return node ? node.textContent?.trim() || '' : '';
+            };
+
+            const rawSong = getValue('SONGTITLE');
+            const serverTitle = getValue('SERVERTITLE') || 'Çorlu FM';
+            const listeners = parseInt(getValue('CURRENTLISTENERS'), 10) || 0;
+            const streamStatus = getValue('STREAMSTATUS') === '1';
+
+            let artist = '';
+            let track = '';
+
+            if (rawSong.includes(' - ')) {
+                const parts = rawSong.split(' - ', 2);
+                artist = parts[0].trim();
+                track = parts[1].trim();
+            } else {
+                track = rawSong;
+            }
+
+            return {
+                songTitle: track || artist || 'Canlı Yayın',
+                artist: artist || serverTitle,
+                serverTitle: serverTitle,
+                listeners: listeners,
+                isOnline: streamStatus,
+                rawSong: rawSong
+            };
+        } catch (error) {
+            console.error('XML parsing hatası:', error);
+            return {
+                songTitle: 'Canlı Yayın',
+                artist: 'Çorlu FM',
+                serverTitle: 'Çorlu FM',
+                listeners: 0,
+                isOnline: true,
+                rawSong: 'Canlı Yayın'
+            };
+        }
+    };
+
     // Stats güncelleme
     const refreshStats = async () => {
         try {
-            const response = await fetch('?stats=1', { cache: 'no-store' });
+            statusMessageEl.textContent = 'Veriler güncelleniyor...';
+            
+            // Önce doğrudan dene
+            try {
+                const response = await fetch(statsUrl, { 
+                    cache: 'no-store',
+                    mode: 'cors'
+                });
+                if (response.ok) {
+                    const xmlText = await response.text();
+                    const stats = parseStatsXml(xmlText);
+                    updateUI(stats);
+                    statusMessageEl.textContent = 'Veriler başarıyla güncellendi';
+                    return;
+                }
+            } catch (error) {
+                console.warn('Doğrudan istek başarısız:', error);
+            }
+
+            // CORS proxy'leri dene
+            for (const proxy of corsProxies) {
+                try {
+                    const proxyUrl = proxy + encodeURIComponent(statsUrl);
+                    const response = await fetch(proxyUrl, { cache: 'no-store' });
+                    
+                    if (response.ok) {
+                        const xmlText = await response.text();
+                        const stats = parseStatsXml(xmlText);
+                        updateUI(stats);
+                        statusMessageEl.textContent = 'Veriler proxy ile güncellendi';
+                        console.log('Proxy başarılı:', proxy);
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('Proxy başarısız:', proxy, error);
+                }
+            }
+
+            throw new Error('Tüm proxy servisleri başarısız');
+            
+        } catch (error) {
+            console.error('Stats güncellenemedi:', error);
+            statusMessageEl.textContent = 'Veriler güncellenemedi - Bağlantı sorunu';
+            
+            // Varsayılan değerleri göster
+            updateUI({
+                songTitle: 'Canlı Yayın',
+                artist: 'Çorlu FM',
+                serverTitle: 'Çorlu FM',
+                listeners: 0,
+                isOnline: true,
+                rawSong: 'Canlı Yayın'
+            });
+        }
+    };
+
+    // UI güncelleme
+    const updateUI = (stats) => {
+        trackTitleEl.textContent = stats.songTitle;
+        trackArtistEl.textContent = stats.artist;
+        listenerCountEl.textContent = stats.listeners;
+        stationNameEl.textContent = stats.serverTitle;
+        
+        // Albüm kapağı için iTunes API
+        if (stats.artist && stats.songTitle && stats.artist !== 'Çorlu FM') {
+            fetchAlbumArt(stats.artist, stats.songTitle);
+        }
+    };
+
+    // Albüm kapağı alma
+    const fetchAlbumArt = async (artist, track) => {
+        try {
+            const query = encodeURIComponent(`${artist} ${track}`);
+            const response = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&limit=1`);
+            
             if (response.ok) {
                 const data = await response.json();
-                if (data.success) {
-                    const stats = data.data;
-                    
-                    trackTitleEl.textContent = stats.songTitle;
-                    trackArtistEl.textContent = stats.artist;
-                    listenerCountEl.textContent = stats.listeners;
-                    stationNameEl.textContent = stats.serverTitle;
-                    
-                    // Albüm kapağı için iTunes API
-                    if (stats.artist && stats.songTitle) {
-                        try {
-                            const query = encodeURIComponent(`${stats.artist} ${stats.songTitle}`);
-                            const itunesResponse = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&limit=1`);
-                            if (itunesResponse.ok) {
-                                const itunesData = await itunesResponse.json();
-                                if (itunesData.results && itunesData.results.length > 0) {
-                                    const artUrl = itunesData.results[0].artworkUrl100.replace('100x100bb.jpg', '512x512bb.jpg');
-                                    coverArtEl.style.backgroundImage = `url('${artUrl}')`;
-                                }
-                            }
-                        } catch (e) {
-                            console.warn('Albüm kapağı alınamadı');
-                        }
-                    }
+                if (data.results && data.results.length > 0) {
+                    const artUrl = data.results[0].artworkUrl100.replace('100x100bb.jpg', '512x512bb.jpg');
+                    coverArtEl.style.backgroundImage = `url('${artUrl}')`;
                 }
             }
         } catch (error) {
-            console.warn('Stats güncellenemedi:', error);
+            console.warn('Albüm kapağı alınamadı:', error);
         }
     };
 
@@ -404,10 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isPlaying = true;
             updatePlayButton();
             autoStartArmed = false;
+            statusMessageEl.textContent = 'Yayın başlatıldı';
         } catch (error) {
             console.warn('Yayın başlatılamadı:', error);
+            statusMessageEl.textContent = 'Yayın başlatılamadı - Kullanıcı etkileşimi gerekli';
+            
             if (autoStartArmed) {
-                // Kullanıcı etkileşimi bekle
                 const resume = () => {
                     document.removeEventListener('click', resume);
                     document.removeEventListener('touchstart', resume);
@@ -426,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
         audioEl.load();
         isPlaying = false;
         updatePlayButton();
+        statusMessageEl.textContent = 'Yayın durduruldu';
     };
 
     // Event listeners
@@ -445,6 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
     audioEl.addEventListener('playing', () => {
         isPlaying = true;
         updatePlayButton();
+        statusMessageEl.textContent = 'Yayın çalıyor';
     });
 
     audioEl.addEventListener('pause', () => {
@@ -452,10 +507,14 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePlayButton();
     });
 
+    audioEl.addEventListener('error', () => {
+        statusMessageEl.textContent = 'Ses yayınında hata oluştu';
+    });
+
     // Başlangıç
     updatePlayButton();
     refreshStats();
-    setInterval(refreshStats, 10000); // 10 saniye
+    setInterval(refreshStats, 15000); // 15 saniye (GitHub Pages için daha uzun)
     startStream();
 });
 </script>
