@@ -372,7 +372,10 @@
 </main>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const CACHE_BUSTER = () => `?_=${Date.now()}`;
+        const CACHE_BUSTER = (url) => {
+            const separator = url.includes('?') ? '&' : '?';
+            return `${url}${separator}_=${Date.now()}`;
+        };
 
         const playerEl = document.querySelector('#radioPlayer');
         if (!playerEl) {
@@ -475,7 +478,7 @@
             }
 
             try {
-                const response = await fetch(`${statsEndpoint}${CACHE_BUSTER()}`, { cache: 'no-store' });
+                const response = await fetch(CACHE_BUSTER(statsEndpoint), { cache: 'no-store' });
                 if (!response.ok) {
                     throw new Error('İstatistik isteği başarısız oldu');
                 }
