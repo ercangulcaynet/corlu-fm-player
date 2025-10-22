@@ -1,70 +1,9 @@
-<?php
-declare(strict_types=1);
-
-const STREAM_URL = 'https://sssx.radyosfer.com/corlufm/stream';
-const STATS_URL = 'https://sssx.radyosfer.com/corlufm/stats?sid=1';
-const DEFAULT_ART = 'http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png';
-
-/**
- * Fetches and normalises Shoutcast statistics.
- *
- * @return array<string, mixed>
- */
-function fetchStats(): array
-{
-    $base = [
-        'songTitle'    => 'Canlı Yayın',
-        'artist'       => '',
-        'track'        => 'Çorlu FM',
-        'rawSongTitle' => '',
-        'listeners'    => 0,
-        'serverTitle'  => 'Çorlu FM',
-        'bitrate'      => '',
-        'isOnline'     => false,
-        'albumArt'     => DEFAULT_ART,
-    ];
-
-    $xml = @simplexml_load_file(STATS_URL);
-
-    if ($xml === false) {
-        return $base;
-    }
-
-    $xml = (array) $xml;
-
-    $rawSong = isset($xml['SONGTITLE']) ? trim((string) $xml['SONGTITLE']) : '';
-    $songPieces = explode(' - ', $rawSong, 2);
-    $artist = trim($songPieces[0] ?? '');
-    $track = trim($songPieces[1] ?? ($artist !== '' ? '' : $rawSong));
-
-    return [
-        'songTitle'    => $track !== '' ? $track : ($artist !== '' ? $artist : 'Canlı Yayın'),
-        'artist'       => $artist,
-        'track'        => $track,
-        'rawSongTitle' => $rawSong,
-        'listeners'    => isset($xml['CURRENTLISTENERS']) ? (int) $xml['CURRENTLISTENERS'] : 0,
-        'serverTitle'  => isset($xml['SERVERTITLE']) ? (string) $xml['SERVERTITLE'] : 'Çorlu FM',
-        'bitrate'      => isset($xml['BITRATE']) ? (string) $xml['BITRATE'] : '',
-        'isOnline'     => isset($xml['STREAMSTATUS']) ? ((int) $xml['STREAMSTATUS'] === 1) : false,
-        'albumArt'     => DEFAULT_ART,
-    ];
-}
-
-if (isset($_GET['action']) && $_GET['action'] === 'stats') {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    echo json_encode(fetchStats(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-}
-
-$stats = fetchStats();
-?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($stats['serverTitle'] ?? 'Çorlu FM', ENT_QUOTES, 'UTF-8'); ?> · Canlı Radyo Player</title>
+    <title>Çorlu FM · Canlı Radyo Player</title>
     <style>
         :root {
             color-scheme: dark;
@@ -160,8 +99,10 @@ $stats = fetchStats();
         .cover-art {
             aspect-ratio: 1 / 1;
             border-radius: clamp(16px, 4vw, 24px);
-            background-size: cover;
+            background-size: contain;
             background-position: center;
+            background-repeat: no-repeat;
+            background-color: rgba(0,0,0,0.45);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
             position: relative;
             overflow: hidden;
@@ -379,18 +320,17 @@ $stats = fetchStats();
             .controls {
                 gap: 12px;
             }
-
         }
     </style>
 </head>
 <body>
 <main class="player" id="radioPlayer"
-      data-endpoint="<?= htmlspecialchars(basename(__FILE__) . '?action=stats', ENT_QUOTES, 'UTF-8'); ?>"
-      data-stream="<?= htmlspecialchars(STREAM_URL, ENT_QUOTES, 'UTF-8'); ?>"
-      data-default-art="<?= htmlspecialchars(DEFAULT_ART, ENT_QUOTES, 'UTF-8'); ?>">
+      data-endpoint="https://sssx.radyosfer.com/corlufm/stats?sid=1"
+      data-stream="https://sssx.radyosfer.com/corlufm/stream"
+      data-default-art="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png">
     <div class="layout">
         <section class="cover-art" id="coverArt"
-                 style="background-image: url('<?= htmlspecialchars($stats['albumArt'], ENT_QUOTES, 'UTF-8'); ?>');">
+                 style="background-image: url('http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png');">
         </section>
 
         <section class="track-meta">
@@ -398,12 +338,8 @@ $stats = fetchStats();
                 <span class="pulse-dot"></span>
                 Canlı Yayın
             </span>
-            <h1 id="trackTitle">
-                <?= htmlspecialchars($stats['songTitle'], ENT_QUOTES, 'UTF-8'); ?>
-            </h1>
-            <h2 id="trackArtist">
-                <?= htmlspecialchars($stats['artist'] !== '' ? $stats['artist'] : $stats['serverTitle'], ENT_QUOTES, 'UTF-8'); ?>
-            </h2>
+            <h1 id="trackTitle">Canlı Yayın</h1>
+            <h2 id="trackArtist">Çorlu FM</h2>
             <div class="controls">
                 <button class="play-toggle" id="playToggle" aria-label="Yayını Başlat">
                     &#9658;
@@ -419,185 +355,242 @@ $stats = fetchStats();
             <div class="info-grid">
                 <div class="info-card">
                     <span>Dinleyiciler</span>
-                    <strong id="listenerCount"><?= htmlspecialchars((string) $stats['listeners'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                    <strong id="listenerCount">0</strong>
                 </div>
                 <div class="info-card">
                     <span>Radyo</span>
-                    <strong id="stationName"><?= htmlspecialchars($stats['serverTitle'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                    <strong id="stationName">Çorlu FM</strong>
                 </div>
             </div>
         </section>
     </div>
 
     <audio id="radioAudio" preload="none" playsinline>
-        <source src="<?= htmlspecialchars(STREAM_URL, ENT_QUOTES, 'UTF-8'); ?>" type="audio/mpeg">
+        <source src="https://sssx.radyosfer.com/corlufm/stream" type="audio/mpeg">
         Tarayıcınız canlı yayını çalamıyor.
     </audio>
 </main>
-
 <script>
-    const playerEl = document.getElementById('radioPlayer');
-    const audioEl = document.getElementById('radioAudio');
-    const playToggle = document.getElementById('playToggle');
-    const fullscreenToggle = document.getElementById('fullscreenToggle');
-    const trackTitleEl = document.getElementById('trackTitle');
-    const trackArtistEl = document.getElementById('trackArtist');
-    const listenerCountEl = document.getElementById('listenerCount');
-    const stationNameEl = document.getElementById('stationName');
-    const coverArtEl = document.getElementById('coverArt');
+    document.addEventListener('DOMContentLoaded', () => {
+        const CACHE_BUSTER = () => `?_=${Date.now()}`;
 
-    const endpoint = playerEl.dataset.endpoint || '';
-    const streamUrl = playerEl.dataset.stream || '';
-    const defaultArt = playerEl.dataset.defaultArt || '';
-
-    let isPlaying = false;
-    let albumArtCache = {};
-    let autoStartArmed = true;
-
-    const updatePlayButton = () => {
-        playToggle.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9658;';
-        playToggle.setAttribute('aria-label', isPlaying ? 'Yayını Duraklat' : 'Yayını Başlat');
-    };
-
-    const requestAlbumArt = async (artist, track) => {
-        const key = `${artist} - ${track}`;
-        if (albumArtCache[key]) {
-            return albumArtCache[key];
-        }
-
-        if (!artist && !track) {
-            return defaultArt;
-        }
-
-        try {
-            const query = encodeURIComponent([artist, track].filter(Boolean).join(' '));
-            const response = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&limit=1`);
-            if (!response.ok) {
-                throw new Error('Album art fetch failed');
-            }
-            const data = await response.json();
-            if (data.results && data.results.length > 0 && data.results[0].artworkUrl100) {
-                const artUrl = data.results[0].artworkUrl100.replace('100x100bb.jpg', '512x512bb.jpg');
-                albumArtCache[key] = artUrl;
-                return artUrl;
-            }
-        } catch (error) {
-            console.warn('Albüm görseli alınamadı:', error);
-        }
-
-        albumArtCache[key] = defaultArt;
-        return defaultArt;
-    };
-
-    const refreshStats = async () => {
-        if (!endpoint) {
+        const playerEl = document.querySelector('#radioPlayer');
+        if (!playerEl) {
             return;
         }
 
-        try {
-            const response = await fetch(endpoint, { cache: 'no-store' });
-            if (!response.ok) {
-                throw new Error('İstek başarısız oldu');
+        const audioEl = document.querySelector('#radioAudio');
+        const playToggle = document.querySelector('#playToggle');
+        const fullscreenToggle = document.querySelector('#fullscreenToggle');
+        const trackTitleEl = document.querySelector('#trackTitle');
+        const trackArtistEl = document.querySelector('#trackArtist');
+        const listenerCountEl = document.querySelector('#listenerCount');
+        const stationNameEl = document.querySelector('#stationName');
+        const coverArtEl = document.querySelector('#coverArt');
+
+        const statsEndpoint = playerEl.dataset.endpoint;
+        const streamUrl = playerEl.dataset.stream;
+        const defaultArt = playerEl.dataset.defaultArt;
+
+        let isPlaying = false;
+        let autoStartArmed = true;
+        const albumArtCache = {};
+
+        const updatePlayButton = () => {
+            if (!playToggle) {
+                return;
             }
-            const data = await response.json();
-
-            trackTitleEl.textContent = data.songTitle || 'Canlı Yayın';
-            trackArtistEl.textContent = data.artist || data.serverTitle || 'Çorlu FM';
-            listenerCountEl.textContent = data.listeners ?? '0';
-            stationNameEl.textContent = data.serverTitle || 'Çorlu FM';
-
-            const artUrl = await requestAlbumArt(data.artist || '', data.track || data.songTitle || '');
-            coverArtEl.style.backgroundImage = `url('${artUrl || defaultArt}')`;
-
-        } catch (error) {
-            console.warn('Statü güncellemesi başarısız:', error);
-        }
-    };
-
-    const armAutoStartFallback = () => {
-        if (!autoStartArmed) {
-            return;
-        }
-
-        const resume = () => {
-            document.removeEventListener('pointerdown', resume);
-            document.removeEventListener('keydown', resume);
-            document.removeEventListener('touchstart', resume);
-            autoStartArmed = false;
-            startStream({ force: true });
+            playToggle.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9658;';
+            playToggle.setAttribute('aria-label', isPlaying ? 'Yayını Duraklat' : 'Yayını Başlat');
         };
 
-        document.addEventListener('pointerdown', resume, { once: true });
-        document.addEventListener('keydown', resume, { once: true });
-        document.addEventListener('touchstart', resume, { once: true });
-    };
+        const requestAlbumArt = async (artist, track) => {
+            const key = `${artist} - ${track}`.trim();
+            if (albumArtCache[key]) {
+                return albumArtCache[key];
+            }
 
-    const startStream = async (options = {}) => {
-        const { force = false, auto = false } = options;
-        try {
-            if (audioEl.paused || force) {
-                if (!streamUrl) {
-                    return;
+            if (!artist && !track) {
+                albumArtCache[key] = defaultArt;
+                return defaultArt;
+            }
+
+            try {
+                const query = encodeURIComponent([artist, track].filter(Boolean).join(' '));
+                const response = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&limit=1`);
+                if (!response.ok) {
+                    throw new Error('Albüm kapak isteği başarısız');
+                }
+                const payload = await response.json();
+                if (payload.results && payload.results.length > 0) {
+                    const artUrl = payload.results[0].artworkUrl100?.replace('100x100bb.jpg', '512x512bb.jpg');
+                    if (artUrl) {
+                        albumArtCache[key] = artUrl;
+                        return artUrl;
+                    }
+                }
+            } catch (error) {
+                console.warn('Albüm görseli alınamadı:', error);
+            }
+
+            albumArtCache[key] = defaultArt;
+            return defaultArt;
+        };
+
+        const parseStatsXml = (xmlText) => {
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(xmlText, 'application/xml');
+
+            const getValue = (tag) => {
+                const node = xml.getElementsByTagName(tag)[0];
+                return node ? node.textContent?.trim() ?? '' : '';
+            };
+
+            const rawSong = getValue('SONGTITLE');
+            const serverTitle = getValue('SERVERTITLE') || 'Çorlu FM';
+            const listeners = parseInt(getValue('CURRENTLISTENERS'), 10) || 0;
+            const streamStatus = getValue('STREAMSTATUS') === '1';
+
+            const [artistPart, trackPart] = rawSong.includes(' - ')
+                ? rawSong.split(' - ')
+                : [rawSong, ''];
+
+            const artist = (trackPart ? artistPart : '').trim();
+            const track = (trackPart || (!trackPart && artist ? '' : rawSong)).trim();
+
+            return {
+                rawSong,
+                serverTitle,
+                listeners,
+                artist,
+                track,
+                songTitle: track || artist || 'Canlı Yayın',
+                isOnline: streamStatus,
+            };
+        };
+
+        const refreshStats = async () => {
+            if (!statsEndpoint) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${statsEndpoint}${CACHE_BUSTER()}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error('İstatistik isteği başarısız oldu');
+                }
+                const xmlText = await response.text();
+                const stats = parseStatsXml(xmlText);
+
+                if (trackTitleEl) {
+                    trackTitleEl.textContent = stats.songTitle;
+                }
+                if (trackArtistEl) {
+                    trackArtistEl.textContent = stats.artist || stats.serverTitle || 'Çorlu FM';
+                }
+                if (listenerCountEl) {
+                    listenerCountEl.textContent = `${stats.listeners}`;
+                }
+                if (stationNameEl) {
+                    stationNameEl.textContent = stats.serverTitle || 'Çorlu FM';
                 }
 
-                if (!audioEl.src || force) {
-                    audioEl.src = streamUrl;
-                    audioEl.load();
+                const artUrl = await requestAlbumArt(stats.artist, stats.track || stats.songTitle);
+                if (coverArtEl) {
+                    coverArtEl.style.backgroundImage = `url('${artUrl || defaultArt}')`;
                 }
+            } catch (error) {
+                console.warn('Statü güncellemesi başarısız:', error);
+            }
+        };
 
-                const playPromise = audioEl.play();
-                if (playPromise !== undefined) {
-                    await playPromise;
-                }
+        const armAutoStartFallback = () => {
+            if (!autoStartArmed) {
+                return;
+            }
 
+            const resume = () => {
+                document.removeEventListener('pointerdown', resume);
+                document.removeEventListener('keydown', resume);
+                document.removeEventListener('touchstart', resume);
                 autoStartArmed = false;
-                isPlaying = true;
-                updatePlayButton();
+                startStream({ force: true });
+            };
+
+            document.addEventListener('pointerdown', resume, { once: true });
+            document.addEventListener('keydown', resume, { once: true });
+            document.addEventListener('touchstart', resume, { once: true });
+        };
+
+        const startStream = async ({ force = false, auto = false } = {}) => {
+            if (!audioEl || !streamUrl) {
+                return;
             }
-        } catch (error) {
-            console.warn('Yayın başlatılamadı:', error);
-            if (auto) {
-                armAutoStartFallback();
+
+            try {
+                if (audioEl.paused || force) {
+                    if (!audioEl.src || force) {
+                        audioEl.src = streamUrl;
+                        audioEl.load();
+                    }
+
+                    const playPromise = audioEl.play();
+                    if (playPromise !== undefined) {
+                        await playPromise;
+                    }
+
+                    autoStartArmed = false;
+                    isPlaying = true;
+                    updatePlayButton();
+                }
+            } catch (error) {
+                console.warn('Yayın başlatılamadı:', error);
+                if (auto) {
+                    armAutoStartFallback();
+                }
             }
-        }
-    };
+        };
 
-    const stopStream = () => {
-        audioEl.pause();
-        audioEl.removeAttribute('src');
-        audioEl.load();
-        isPlaying = false;
+        const stopStream = () => {
+            if (!audioEl) {
+                return;
+            }
+            audioEl.pause();
+            audioEl.removeAttribute('src');
+            audioEl.load();
+            isPlaying = false;
+            updatePlayButton();
+        };
+
+        playToggle?.addEventListener('click', () => {
+            if (isPlaying) {
+                stopStream();
+            } else {
+                autoStartArmed = false;
+                startStream({ force: true });
+            }
+        });
+
+        fullscreenToggle?.addEventListener('click', () => {
+            playerEl.classList.toggle('fullscreen');
+            fullscreenToggle.textContent = playerEl.classList.contains('fullscreen') ? '⤢ Çıkış' : '⤢ Tam Ekran';
+        });
+
+        audioEl?.addEventListener('playing', () => {
+            isPlaying = true;
+            updatePlayButton();
+        });
+
+        audioEl?.addEventListener('pause', () => {
+            isPlaying = false;
+            updatePlayButton();
+        });
+
         updatePlayButton();
-    };
-
-    playToggle.addEventListener('click', () => {
-        if (isPlaying) {
-            stopStream();
-        } else {
-            autoStartArmed = false;
-            startStream({ force: true });
-        }
+        refreshStats();
+        setInterval(refreshStats, 10000);
+        startStream({ auto: true });
     });
-
-    fullscreenToggle.addEventListener('click', () => {
-        playerEl.classList.toggle('fullscreen');
-        fullscreenToggle.textContent = playerEl.classList.contains('fullscreen') ? '⤢ Çıkış' : '⤢ Tam Ekran';
-    });
-
-    audioEl.addEventListener('playing', () => {
-        isPlaying = true;
-        updatePlayButton();
-    });
-
-    audioEl.addEventListener('pause', () => {
-        isPlaying = false;
-        updatePlayButton();
-    });
-
-    updatePlayButton();
-    refreshStats();
-    setInterval(refreshStats, 10000);
-    startStream({ auto: true });
 </script>
 </body>
 </html>
