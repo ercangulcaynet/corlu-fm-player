@@ -377,18 +377,58 @@
             return `${url}${separator}_=${Date.now()}`;
         };
 
-        const fetchWithCors = async (url, options = {}) => {
+        const fetchStatsData = async () => {
             try {
-                const response = await fetch(url, options);
+                // Önce kendi PHP proxy'mizi dene
+                const response = await fetch('./proxy.php', { 
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
                 if (response.ok) {
-                    return response;
+                    const data = await response.json();
+                    if (data.success) {
+                        console.log('PHP proxy başarılı:', data.data);
+                        return data.data;
+                    }
                 }
             } catch (error) {
-                console.warn('Doğrudan istek başarısız, proxy deneniyor:', error);
+                console.warn('PHP proxy başarısız, alternatif yöntemler deneniyor:', error);
             }
 
-            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-            return fetch(proxiedUrl, options);
+            // PHP proxy başarısız olursa, doğrudan XML'i dene
+            try {
+                const response = await fetch(statsEndpoint, { cache: 'no-store' });
+                if (response.ok) {
+                    const xmlText = await response.text();
+                    return parseStatsXml(xmlText);
+                }
+            } catch (error) {
+                console.warn('Doğrudan XML isteği başarısız:', error);
+            }
+
+            // Son çare olarak external proxy'leri dene
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(statsEndpoint)}`,
+                `https://corsproxy.io/?${encodeURIComponent(statsEndpoint)}`
+            ];
+
+            for (const proxyUrl of proxies) {
+                try {
+                    const response = await fetch(proxyUrl, { cache: 'no-store' });
+                    if (response.ok) {
+                        const xmlText = await response.text();
+                        console.log('External proxy başarılı:', proxyUrl);
+                        return parseStatsXml(xmlText);
+                    }
+                } catch (error) {
+                    console.warn('External proxy başarısız:', proxyUrl, error);
+                }
+            }
+
+            throw new Error('Tüm yöntemler başarısız');
         };
 
         const playerEl = document.querySelector('#radioPlayer');
@@ -455,69 +495,112 @@
         };
 
         const parseStatsXml = (xmlText) => {
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(xmlText, 'application/xml');
+            try {
+                console.log('XML verisi alındı:', xmlText.substring(0, 200) + '...');
+                
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(xmlText, 'application/xml');
 
-            const getValue = (tag) => {
-                const node = xml.getElementsByTagName(tag)[0];
-                return node ? node.textContent?.trim() ?? '' : '';
-            };
+                // XML parsing hatası kontrolü
+                const parseError = xml.querySelector('parsererror');
+                if (parseError) {
+                    console.error('XML parsing hatası:', parseError.textContent);
+                    throw new Error('XML parsing başarısız');
+                }
 
-            const rawSong = getValue('SONGTITLE');
-            const serverTitle = getValue('SERVERTITLE') || 'Çorlu FM';
-            const listeners = parseInt(getValue('CURRENTLISTENERS'), 10) || 0;
-            const streamStatus = getValue('STREAMSTATUS') === '1';
+                const getValue = (tag) => {
+                    const node = xml.getElementsByTagName(tag)[0];
+                    return node ? node.textContent?.trim() ?? '' : '';
+                };
 
-            const [artistPart, trackPart] = rawSong.includes(' - ')
-                ? rawSong.split(' - ')
-                : [rawSong, ''];
+                const rawSong = getValue('SONGTITLE');
+                const serverTitle = getValue('SERVERTITLE') || 'Çorlu FM';
+                const listeners = parseInt(getValue('CURRENTLISTENERS'), 10) || 0;
+                const streamStatus = getValue('STREAMSTATUS') === '1';
 
-            const artist = (trackPart ? artistPart : '').trim();
-            const track = (trackPart || (!trackPart && artist ? '' : rawSong)).trim();
+                console.log('XML verileri:', { rawSong, serverTitle, listeners, streamStatus });
 
-            return {
-                rawSong,
-                serverTitle,
-                listeners,
-                artist,
-                track,
-                songTitle: track || artist || 'Canlı Yayın',
-                isOnline: streamStatus,
-            };
+                const [artistPart, trackPart] = rawSong.includes(' - ')
+                    ? rawSong.split(' - ')
+                    : [rawSong, ''];
+
+                const artist = (trackPart ? artistPart : '').trim();
+                const track = (trackPart || (!trackPart && artist ? '' : rawSong)).trim();
+
+                const result = {
+                    rawSong,
+                    serverTitle,
+                    listeners,
+                    artist,
+                    track,
+                    songTitle: track || artist || 'Canlı Yayın',
+                    isOnline: streamStatus,
+                };
+
+                console.log('İşlenmiş veriler:', result);
+                return result;
+            } catch (error) {
+                console.error('XML parsing hatası:', error);
+                return {
+                    rawSong: 'Canlı Yayın',
+                    serverTitle: 'Çorlu FM',
+                    listeners: 0,
+                    artist: 'Çorlu FM',
+                    track: 'Canlı Yayın',
+                    songTitle: 'Canlı Yayın',
+                    isOnline: true,
+                };
+            }
         };
 
         const refreshStats = async () => {
             if (!statsEndpoint) {
+                console.warn('Stats endpoint tanımlı değil');
                 return;
             }
 
             try {
-                const response = await fetchWithCors(CACHE_BUSTER(statsEndpoint), { cache: 'no-store' });
-                if (!response.ok) {
-                    throw new Error('İstatistik isteği başarısız oldu');
-                }
-                const xmlText = await response.text();
-                const stats = parseStatsXml(xmlText);
+                console.log('Stats güncelleniyor...');
+                const stats = await fetchStatsData();
+                
+                console.log('Alınan veriler:', stats);
 
+                // DOM elementlerini güncelle
                 if (trackTitleEl) {
                     trackTitleEl.textContent = stats.songTitle;
+                    console.log('Şarkı başlığı güncellendi:', stats.songTitle);
                 }
                 if (trackArtistEl) {
                     trackArtistEl.textContent = stats.artist || stats.serverTitle || 'Çorlu FM';
+                    console.log('Sanatçı güncellendi:', stats.artist || stats.serverTitle);
                 }
                 if (listenerCountEl) {
                     listenerCountEl.textContent = `${stats.listeners}`;
+                    console.log('Dinleyici sayısı güncellendi:', stats.listeners);
                 }
                 if (stationNameEl) {
                     stationNameEl.textContent = stats.serverTitle || 'Çorlu FM';
+                    console.log('Radyo adı güncellendi:', stats.serverTitle);
                 }
 
+                // Albüm kapağını güncelle
                 const artUrl = await requestAlbumArt(stats.artist, stats.track || stats.songTitle);
                 if (coverArtEl) {
                     coverArtEl.style.backgroundImage = `url('${artUrl || defaultArt}')`;
+                    console.log('Albüm kapağı güncellendi:', artUrl || defaultArt);
                 }
+                
+                console.log('Stats başarıyla güncellendi');
             } catch (error) {
-                console.warn('Statü güncellemesi başarısız:', error);
+                console.error('Statü güncellemesi başarısız:', error);
+                
+                // Hata durumunda varsayılan değerleri göster
+                if (trackTitleEl && trackTitleEl.textContent === 'Canlı Yayın') {
+                    trackTitleEl.textContent = 'Bağlantı Sorunu';
+                }
+                if (listenerCountEl) {
+                    listenerCountEl.textContent = '?';
+                }
             }
         };
 
