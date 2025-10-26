@@ -105,6 +105,7 @@
             font-weight: 500;
             color: var(--accent);
             width: fit-content;
+            margin: 0 auto;
         }
 
         .pulse-dot {
@@ -342,6 +343,14 @@
                 height: clamp(180px, 40vw, 240px);
             }
 
+            .track-meta {
+                align-items: center;
+            }
+
+            .badge {
+                margin: 0 auto;
+            }
+
             .controls {
                 justify-content: center;
                 flex-wrap: wrap;
@@ -478,14 +487,42 @@
     // XML verilerini çek ve göster (CORS proxy ile)
     const updateData = async () => {
         try {
-            const proxyUrl = 'https://api.allorigins.win/get?url=';
-            const xmlUrl = encodeURIComponent('https://sssx.radyosfer.com/corlufm/stats?sid=1');
-            const response = await fetch(proxyUrl + xmlUrl);
-            const data = await response.json();
+            // Alternatif proxy URL'leri (birincisi çalışmazsa diğerini dene)
+            const proxies = [
+                'https://api.allorigins.win/get?url=',
+                'https://cors-anywhere.herokuapp.com/',
+                'https://api.codetabs.com/v1/proxy?quest='
+            ];
             
-            if (data.contents) {
+            const xmlUrl = 'https://sssx.radyosfer.com/corlufm/stats?sid=1';
+            let xmlData = null;
+            
+            // Her proxy'yi dene
+            for (const proxyUrl of proxies) {
+                try {
+                    const url = proxyUrl + encodeURIComponent(xmlUrl);
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    // allorigins formatı
+                    if (data.contents) {
+                        xmlData = data.contents;
+                        break;
+                    }
+                    // codetabs formatı
+                    else if (data.text) {
+                        xmlData = data.text;
+                        break;
+                    }
+                } catch (err) {
+                    console.log('Proxy denendi, sonuç alınamadı:', proxyUrl);
+                    continue;
+                }
+            }
+            
+            if (xmlData) {
                 const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(data.contents, 'text/xml');
+                const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
                 
                 const songTitle = xmlDoc.getElementsByTagName('SONGTITLE')[0]?.textContent || '';
                 const serverTitle = xmlDoc.getElementsByTagName('SERVERTITLE')[0]?.textContent || '';
@@ -522,6 +559,8 @@
                 // Kapak görseli güncelle
                 const artUrl = await getAlbumArt(artist, title);
                 coverArtEl.style.backgroundImage = `url('${artUrl}')`;
+            } else {
+                console.log('Tüm proxy\'ler başarısız oldu');
             }
         } catch (error) {
             console.log('Veri güncellenemedi:', error);
