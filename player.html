@@ -105,7 +105,6 @@
             font-weight: 500;
             color: var(--accent);
             width: fit-content;
-            margin: 0 auto;
         }
 
         .pulse-dot {
@@ -484,55 +483,59 @@
         return playerEl.dataset.defaultArt; // Fallback to default logo
     };
 
-    // XML verilerini çek ve göster (CORS proxy ile)
+    // XML verilerini çek ve göster
     const updateData = async () => {
         try {
-            // Alternatif proxy URL'leri (birincisi çalışmazsa diğerini dene)
-            const proxies = [
-                'https://api.allorigins.win/get?url=',
-                'https://cors-anywhere.herokuapp.com/',
-                'https://api.codetabs.com/v1/proxy?quest='
-            ];
-            
             const xmlUrl = 'https://sssx.radyosfer.com/corlufm/stats?sid=1';
             let xmlData = null;
             
-            // Her proxy'yi dene
-            for (const proxyUrl of proxies) {
+            // CORS proxy ile dene - farklı endpoint'ler
+            const proxies = [
+                async () => {
+                    const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(xmlUrl));
+                    const result = await response.json();
+                    return result.contents;
+                },
+                async () => {
+                    const response = await fetch('https://thingproxy.freeboard.io/fetch/' + xmlUrl);
+                    return await response.text();
+                },
+                async () => {
+                    const response = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(xmlUrl));
+                    return await response.text();
+                }
+            ];
+            
+            for (const method of proxies) {
                 try {
-                    const url = proxyUrl + encodeURIComponent(xmlUrl);
-                    const response = await fetch(url);
-                    const data = await response.json();
-                    
-                    // allorigins formatı
-                    if (data.contents) {
-                        xmlData = data.contents;
-                        break;
-                    }
-                    // codetabs formatı
-                    else if (data.text) {
-                        xmlData = data.text;
+                    xmlData = await method();
+                    if (xmlData && xmlData.includes('<?xml') && !xmlData.includes('DOCTYPE')) {
                         break;
                     }
                 } catch (err) {
-                    console.log('Proxy denendi, sonuç alınamadı:', proxyUrl);
                     continue;
                 }
             }
             
-            if (xmlData) {
+            if (xmlData && !xmlData.includes('DOCTYPE')) {
+                console.log('XML verisi alındı:', xmlData.substring(0, 500));
+                
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+                
+                console.log('XML Document:', xmlDoc.documentElement);
                 
                 const songTitle = xmlDoc.getElementsByTagName('SONGTITLE')[0]?.textContent || '';
                 const serverTitle = xmlDoc.getElementsByTagName('SERVERTITLE')[0]?.textContent || '';
                 const listeners = xmlDoc.getElementsByTagName('CURRENTLISTENERS')[0]?.textContent || '0';
 
+                console.log('Parse edilen veri:', { songTitle, serverTitle, listeners });
+
                 let artist = serverTitle;
                 let title = songTitle;
 
                 // Attempt to parse artist and title from SONGTITLE
-                if (songTitle.includes(' - ')) {
+                if (songTitle && songTitle.includes(' - ')) {
                     const parts = songTitle.split(' - ');
                     artist = parts[0].trim();
                     title = parts[1].trim();
@@ -560,10 +563,10 @@
                 const artUrl = await getAlbumArt(artist, title);
                 coverArtEl.style.backgroundImage = `url('${artUrl}')`;
             } else {
-                console.log('Tüm proxy\'ler başarısız oldu');
+                console.log('Geçerli XML verisi bulunamadı');
             }
         } catch (error) {
-            console.log('Veri güncellenemedi:', error);
+            console.error('Veri güncellenemedi:', error);
         }
     };
 
