@@ -18,6 +18,15 @@
             --border-radius: 16px;
         }
 
+        :root.light-mode {
+            color-scheme: light;
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --accent: #1DB954;
+            --text-primary: #212121;
+            --text-secondary: #666666;
+        }
+
         * {
             box-sizing: border-box;
             padding: 0;
@@ -33,6 +42,11 @@
             justify-content: center;
             align-items: center;
             padding: 24px;
+            transition: background 0.3s ease;
+        }
+
+        body.light-mode {
+            background: radial-gradient(circle at top, #f0f0f0, #e5e5e5 65%);
         }
 
         .player {
@@ -47,12 +61,51 @@
             border: 1px solid rgba(255,255,255,0.05);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(12px);
-            transition: transform 0.4s ease;
+            transition: transform 0.4s ease, background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
             overflow: hidden;
+        }
+
+        body.light-mode .player {
+            background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(250,250,250,0.95));
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
         }
 
         .player:hover {
             transform: translateY(-4px);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.1);
+        }
+
+        body.light-mode .theme-toggle {
+            border: 1px solid rgba(0,0,0,0.15);
+            background: rgba(0,0,0,0.05);
+        }
+
+        body.light-mode .theme-toggle:hover {
+            background: rgba(0,0,0,0.1);
         }
 
         .layout {
@@ -66,13 +119,24 @@
             width: clamp(200px, 25vw, 320px);
             height: clamp(200px, 25vw, 320px);
             border-radius: var(--border-radius);
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            background-color: #2a2a2a;
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6);
             position: relative;
             overflow: hidden;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        body.light-mode .cover-art {
+            background-color: #f0f0f0;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Logo görseli için arka plan beyaz olsun - background-image korunur */
+        body.light-mode .cover-art.is-logo {
+            background-color: #ffffff !important;
         }
 
         .cover-art::before {
@@ -131,6 +195,13 @@
             background-clip: text;
         }
 
+        body.light-mode .track-meta h1 {
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
+            color: var(--text-primary);
+        }
+
         .track-meta h2 {
             font-size: clamp(16px, 2.5vw, 24px);
             font-weight: 400;
@@ -182,9 +253,18 @@
             transition: all 0.3s ease;
         }
 
+        body.light-mode .secondary {
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
         .secondary:hover {
             background: rgba(255,255,255,0.1);
             border-color: rgba(255,255,255,0.3);
+        }
+
+        body.light-mode .secondary:hover {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.3);
         }
 
         .live-indicator {
@@ -218,9 +298,18 @@
             justify-content: center;
         }
 
+        body.light-mode .volume-button {
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
         .volume-button:hover {
             background: rgba(255,255,255,0.1);
             border-color: rgba(255,255,255,0.3);
+        }
+
+        body.light-mode .volume-button:hover {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.3);
         }
 
         .volume-button.muted {
@@ -237,6 +326,10 @@
             outline: none;
             cursor: pointer;
             -webkit-appearance: none;
+        }
+
+        body.light-mode .volume-slider {
+            background: rgba(0,0,0,0.2);
         }
 
         .volume-slider::-webkit-slider-thumb {
@@ -272,6 +365,12 @@
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 12px;
             text-align: center;
+            transition: background 0.3s ease, border 0.3s ease;
+        }
+
+        body.light-mode .info-card {
+            background: rgba(0,0,0,0.03);
+            border: 1px solid rgba(0,0,0,0.08);
         }
 
         .info-card span {
@@ -386,6 +485,15 @@
       data-endpoint="https://sssx.radyosfer.com/corlufm/stats?sid=1"
       data-stream="https://sssx.radyosfer.com/corlufm/stream"
       data-default-art="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png">
+    <button class="theme-toggle" id="themeToggle" aria-label="Tema Değiştir">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            <path d="M19 3v4"/>
+            <path d="M21 5h-4"/>
+            <path d="M17 21a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/>
+            <path d="m16 7 1 1"/>
+        </svg>
+    </button>
     <div class="layout">
         <section class="cover-art" id="coverArt"
                  style="background-image: url('http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png');">
@@ -445,11 +553,59 @@
     const coverArtEl = document.getElementById('coverArt');
     const muteButtonEl = document.getElementById('muteButton');
     const volumeSliderEl = document.getElementById('volumeSlider');
+    const themeToggleEl = document.getElementById('themeToggle');
 
     let isPlaying = false;
     let isFullscreen = false;
     let isMuted = false;
     let savedVolume = 100;
+
+    // SVG ikonlar
+    const moonIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    const sunIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+
+    // Tema kontrolü
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    if (currentTheme === 'light') {
+        document.body.classList.add('light-mode');
+        document.documentElement.classList.add('light-mode');
+        themeToggleEl.innerHTML = sunIcon;
+    } else {
+        themeToggleEl.innerHTML = moonIcon;
+    }
+
+    // Logo kontrolü - sayfa yüklendiğinde
+    if (coverArtEl.style.backgroundImage.includes('logo.png')) {
+        coverArtEl.classList.add('is-logo');
+        console.log('Logo tespit edildi, is-logo class eklendi');
+    }
+
+    // Tema değiştir
+    const toggleTheme = () => {
+        const isLight = document.body.classList.contains('light-mode');
+        if (isLight) {
+            document.body.classList.remove('light-mode');
+            document.documentElement.classList.remove('light-mode');
+            themeToggleEl.innerHTML = moonIcon;
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.add('light-mode');
+            document.documentElement.classList.add('light-mode');
+            themeToggleEl.innerHTML = sunIcon;
+            localStorage.setItem('theme', 'light');
+        }
+        
+        // Logo kontrolü yeniden yap - kapak görseli korunur
+        const currentBg = coverArtEl.style.backgroundImage;
+        if (currentBg && currentBg.includes('logo.png')) {
+            coverArtEl.classList.add('is-logo');
+            console.log('Tema değişti, logo class eklendi');
+        } else {
+            coverArtEl.classList.remove('is-logo');
+        }
+    };
+
+    themeToggleEl.addEventListener('click', toggleTheme);
 
     // Title Case uygula
     const toTitleCase = (str) => {
@@ -562,6 +718,15 @@
                 // Kapak görseli güncelle
                 const artUrl = await getAlbumArt(artist, title);
                 coverArtEl.style.backgroundImage = `url('${artUrl}')`;
+                
+                // Logo kontrolü - eğer default logo ise class ekle
+                if (artUrl.includes('logo.png')) {
+                    coverArtEl.classList.add('is-logo');
+                    console.log('Albüm kapağı bulunamadı, logo gösteriliyor');
+                } else {
+                    coverArtEl.classList.remove('is-logo');
+                    console.log('Albüm kapağı gösteriliyor:', artUrl.substring(0, 100));
+                }
             } else {
                 console.log('Geçerli XML verisi bulunamadı');
             }
