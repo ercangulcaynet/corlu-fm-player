@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#121212">
     <title>Çorlu FM - Canlı Radyo</title>
     <style>
         body {
@@ -40,6 +41,18 @@
         .loading.hidden {
             display: none;
         }
+
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-size: 16px;
+            text-align: center;
+            max-width: 300px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -50,9 +63,9 @@
     <div class="iframe-container">
         <iframe 
             id="playerFrame"
-            src="player.html" 
+            src="canli-yayin.php" 
             allow="autoplay; fullscreen"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups">
+            allowfullscreen>
         </iframe>
     </div>
 
@@ -60,13 +73,24 @@
         const iframe = document.getElementById('playerFrame');
         const loading = document.getElementById('loading');
         
+        // Timeout kontrolü (10 saniye)
+        const timeout = setTimeout(() => {
+            if (!loading.classList.contains('hidden')) {
+                loading.innerHTML = '⚠️ Yüklenme uzun sürüyor. PHP sunucunuzun canlı-yayin.php dosyasını host ettiğinden emin olun.';
+                loading.classList.add('error');
+            }
+        }, 10000);
+        
         iframe.addEventListener('load', () => {
+            clearTimeout(timeout);
             loading.classList.add('hidden');
         });
         
         // Iframe yüklenme hatası
         iframe.addEventListener('error', () => {
-            loading.innerHTML = '❌ Player yüklenemedi. Lütfen sayfayı yenileyin.';
+            clearTimeout(timeout);
+            loading.innerHTML = '❌ Player yüklenemedi. PHP dosyasının sunucuda çalıştırıldığından emin olun.';
+            loading.classList.add('error');
         });
     </script>
 </body>

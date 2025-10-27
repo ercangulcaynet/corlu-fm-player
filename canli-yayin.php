@@ -1,7 +1,8 @@
 <?php
-// PHP kısmı - XML verisi çekme
+// PHP Backend - XML verisi ve albüm kapağı çekme
 if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
     
     try {
         $xmlUrl = 'https://sssx.radyosfer.com/corlufm/stats?sid=1';
@@ -15,16 +16,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         $serverTitle = (string)$xmlData->SERVERTITLE;
         $listeners = (int)$xmlData->CURRENTLISTENERS;
 
-        $artist = $serverTitle; // Default artist to server title
+        $artist = $serverTitle;
         $title = $rawSong;
 
-        // Attempt to parse artist and title from SONGTITLE
+        // Artist ve title'ı parse et
         if (strpos($rawSong, ' - ') !== false) {
             list($parsedArtist, $parsedTitle) = explode(' - ', $rawSong, 2);
             $artist = trim($parsedArtist);
             $title = trim($parsedTitle);
         } else if (!empty($rawSong)) {
-            // If no ' - ' separator, assume rawSong is the title and artist is serverTitle
             $title = $rawSong;
         }
         
@@ -68,7 +68,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
                 'title' => 'Canlı Yayın',
                 'artist' => 'Çorlu FM',
                 'listeners' => 0,
-                'status' => 'Canlı Yayın'
+                'status' => 'Canlı Yayın',
+                'artworkUrl' => null
             ]
         ]);
     }
@@ -80,7 +81,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#121212">
     <title>Çorlu FM · Canlı Radyo Player</title>
     <link rel="preconnect" href="https://fonts.cdnfonts.com">
     <link href="https://fonts.cdnfonts.com/css/sofia-pro" rel="stylesheet">
@@ -96,10 +99,20 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             --border-radius: 16px;
         }
 
+        :root.light-mode {
+            color-scheme: light;
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --accent: #1DB954;
+            --text-primary: #212121;
+            --text-secondary: #666666;
+        }
+
         * {
             box-sizing: border-box;
             padding: 0;
             margin: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -111,6 +124,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             justify-content: center;
             align-items: center;
             padding: 24px;
+            transition: background 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body.light-mode {
+            background: radial-gradient(circle at top, #f0f0f0, #e5e5e5 65%);
         }
 
         .player {
@@ -121,16 +141,78 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             width: min(100%, 960px);
             padding: 24px;
             border-radius: var(--border-radius);
-            background: linear-gradient(135deg, rgba(24,24,24,0.95), rgba(12,12,12,0.98));
-            border: 1px solid rgba(255,255,255,0.05);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(12px);
-            transition: transform 0.4s ease;
+            background: linear-gradient(135deg, rgba(24,24,24,0.92), rgba(12,12,12,0.95));
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            transition: transform 0.4s ease, background 0.3s ease;
             overflow: hidden;
+        }
+
+        .player::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.5));
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .player > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        body.light-mode .player {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(250,250,250,0.92));
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.05);
+        }
+
+        body.light-mode .player::before {
+            background: linear-gradient(135deg, rgba(255,255,255,0.5), rgba(255,255,255,0.7));
         }
 
         .player:hover {
             transform: translateY(-4px);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.1);
+        }
+
+        body.light-mode .theme-toggle {
+            border: 1px solid rgba(0,0,0,0.15);
+            background: rgba(0,0,0,0.05);
+        }
+
+        body.light-mode .theme-toggle:hover {
+            background: rgba(0,0,0,0.1);
         }
 
         .layout {
@@ -144,13 +226,23 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             width: clamp(200px, 25vw, 320px);
             height: clamp(200px, 25vw, 320px);
             border-radius: var(--border-radius);
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            background-color: #2a2a2a;
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6);
             position: relative;
             overflow: hidden;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        body.light-mode .cover-art {
+            background-color: #f0f0f0;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-mode .cover-art.is-logo {
+            background-color: #ffffff !important;
         }
 
         .cover-art::before {
@@ -209,6 +301,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             background-clip: text;
         }
 
+        body.light-mode .track-meta h1 {
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
+            color: var(--text-primary);
+        }
+
         .track-meta h2 {
             font-size: clamp(16px, 2.5vw, 24px);
             font-weight: 400;
@@ -221,6 +320,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             align-items: center;
             gap: 16px;
             margin-top: 8px;
+            flex-wrap: wrap;
         }
 
         .play-toggle {
@@ -237,6 +337,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             align-items: center;
             justify-content: center;
             box-shadow: 0 8px 24px rgba(29,185,84,0.3);
+            -webkit-tap-highlight-color: transparent;
         }
 
         .play-toggle:hover {
@@ -258,11 +359,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body.light-mode .secondary {
+            border: 1px solid rgba(0,0,0,0.2);
         }
 
         .secondary:hover {
             background: rgba(255,255,255,0.1);
             border-color: rgba(255,255,255,0.3);
+        }
+
+        body.light-mode .secondary:hover {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.3);
         }
 
         .live-indicator {
@@ -294,11 +405,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             display: flex;
             align-items: center;
             justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body.light-mode .volume-button {
+            border: 1px solid rgba(0,0,0,0.2);
         }
 
         .volume-button:hover {
             background: rgba(255,255,255,0.1);
             border-color: rgba(255,255,255,0.3);
+        }
+
+        body.light-mode .volume-button:hover {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.3);
         }
 
         .volume-button.muted {
@@ -315,6 +436,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             outline: none;
             cursor: pointer;
             -webkit-appearance: none;
+        }
+
+        body.light-mode .volume-slider {
+            background: rgba(0,0,0,0.2);
         }
 
         .volume-slider::-webkit-slider-thumb {
@@ -350,6 +475,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 12px;
             text-align: center;
+            transition: background 0.3s ease, border 0.3s ease;
+        }
+
+        body.light-mode .info-card {
+            background: rgba(0,0,0,0.03);
+            border: 1px solid rgba(0,0,0,0.08);
         }
 
         .info-card span {
@@ -409,6 +540,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         }
 
         @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+
+            .player {
+                padding: 16px;
+            }
+
+            .theme-toggle {
+                top: 16px;
+                right: 16px;
+                width: 36px;
+                height: 36px;
+            }
+
             .layout {
                 flex-direction: column;
                 text-align: center;
@@ -418,6 +564,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             .cover-art {
                 width: clamp(180px, 40vw, 240px);
                 height: clamp(180px, 40vw, 240px);
+            }
+
+            .track-meta {
+                align-items: center;
+            }
+
+            .badge {
+                margin: 0 auto;
             }
 
             .controls {
@@ -442,11 +596,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
         @media (max-width: 480px) {
             .player {
-                padding: 16px;
+                padding: 12px;
             }
 
             .info-grid {
                 grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .controls {
+                gap: 12px;
+            }
+
+            .secondary {
+                padding: 10px 16px;
+                font-size: 13px;
             }
         }
     </style>
@@ -456,6 +620,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
       data-endpoint="https://sssx.radyosfer.com/corlufm/stats?sid=1"
       data-stream="https://sssx.radyosfer.com/corlufm/stream"
       data-default-art="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png">
+    <button class="theme-toggle" id="themeToggle" aria-label="Tema Değiştir">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            <path d="M19 3v4"/>
+            <path d="M21 5h-4"/>
+            <path d="M17 21a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/>
+            <path d="m16 7 1 1"/>
+        </svg>
+    </button>
     <div class="layout">
         <section class="cover-art" id="coverArt"
                  style="background-image: url('http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png');">
@@ -497,7 +670,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             </div>
         </section>
     </div>
-    <audio id="radioAudio" preload="none" playsinline autoplay muted>
+    <audio id="radioAudio" preload="none" playsinline>
         <source src="https://sssx.radyosfer.com/corlufm/stream" type="audio/mpeg">
         Tarayıcınız canlı yayını çalamıyor.
     </audio>
@@ -515,13 +688,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     const coverArtEl = document.getElementById('coverArt');
     const muteButtonEl = document.getElementById('muteButton');
     const volumeSliderEl = document.getElementById('volumeSlider');
+    const themeToggleEl = document.getElementById('themeToggle');
 
     let isPlaying = false;
     let isFullscreen = false;
     let isMuted = false;
     let savedVolume = 100;
 
-    // Title Case uygula
+    // SVG ikonlar
+    const moonIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    const sunIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+
+    // Title Case
     const toTitleCase = (str) => {
         if (!str) return '';
         return str.replace(/\w\S*/g, (txt) => {
@@ -529,49 +707,98 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         });
     };
 
-    // Albüm görseli cache
-    const albumArtCache = {};
-    const getAlbumArt = async (artist, title) => {
-        const key = `${artist} - ${title}`;
-        if (albumArtCache[key]) {
-            return albumArtCache[key];
-        }
+    // Tema kontrolü
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    if (currentTheme === 'light') {
+        document.body.classList.add('light-mode');
+        document.documentElement.classList.add('light-mode');
+        themeToggleEl.innerHTML = sunIcon;
+    } else {
+        themeToggleEl.innerHTML = moonIcon;
+    }
 
-        try {
-            const query = encodeURIComponent(`${artist} ${title}`);
-            const response = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&limit=1`);
-            const data = await response.json();
-            
-            if (data.results && data.results.length > 0) {
-                const artUrl = data.results[0].artworkUrl100.replace('100x100bb.jpg', '512x512bb.jpg');
-                albumArtCache[key] = artUrl;
-                return artUrl;
-            }
-        } catch (error) {
-            console.warn('Albüm görseli alınamadı:', error);
+    // Logo kontrolü
+    if (coverArtEl.style.backgroundImage.includes('logo.png')) {
+        coverArtEl.classList.add('is-logo');
+    }
+
+    // Tema değiştir
+    const toggleTheme = () => {
+        const isLight = document.body.classList.contains('light-mode');
+        if (isLight) {
+            document.body.classList.remove('light-mode');
+            document.documentElement.classList.remove('light-mode');
+            themeToggleEl.innerHTML = moonIcon;
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.add('light-mode');
+            document.documentElement.classList.add('light-mode');
+            themeToggleEl.innerHTML = sunIcon;
+            localStorage.setItem('theme', 'light');
         }
-        return playerEl.dataset.defaultArt; // Fallback to default logo
+        
+        const currentBg = coverArtEl.style.backgroundImage;
+        if (currentBg && currentBg.includes('logo.png')) {
+            coverArtEl.classList.add('is-logo');
+        } else {
+            coverArtEl.classList.remove('is-logo');
+        }
     };
 
-    // XML verilerini çek ve göster
+    themeToggleEl.addEventListener('click', toggleTheme);
+
+    // Verileri PHP backend'den çek
     const updateData = async () => {
         try {
-            const response = await fetch('?action=getStationData');
-            const data = await response.json();
+            const backendUrl = '?action=getStationData';
+            const response = await fetch(backendUrl);
+            const result = await response.json();
             
-            if (data.success) {
-                // Title Case uygula
-                if (data.data.artist.toUpperCase() === "CORLU FM" || data.data.title.toUpperCase() === "CORLU FM" || data.data.title === "Çorlu FM") { trackTitleEl.textContent = "Çorlu FM"; } else { trackTitleEl.textContent = toTitleCase(data.data.title); }
-                if (data.data.artist.toUpperCase() === "CORLU FM") { trackArtistEl.textContent = "Çorlu FM"; } else { trackArtistEl.textContent = toTitleCase(data.data.artist); }
-                listenerCountEl.textContent = data.data.listeners;
+            if (result.success && result.data) {
+                const data = result.data;
+                
+                // Başlık ve sanatçı
+                if (data.title && data.title !== 'CORLU FM' && data.title.toUpperCase() !== 'CORLU FM') {
+                    trackTitleEl.textContent = toTitleCase(data.title);
+                } else {
+                    trackTitleEl.textContent = "Canlı Yayın";
+                }
+                
+                if (data.artist && data.artist !== 'CORLU FM' && data.artist.toUpperCase() !== 'CORLU FM') {
+                    trackArtistEl.textContent = toTitleCase(data.artist);
+                } else {
+                    trackArtistEl.textContent = "Çorlu FM";
+                }
+                
+                // Dinleyici sayısı
+                listenerCountEl.textContent = data.listeners || '0';
                 stationNameEl.textContent = "Çorlu FM";
                 
-                // Kapak görseli güncelle
-                const artUrl = await getAlbumArt(data.data.artist, data.data.title);
+                // Kapak görseli
+                const artUrl = data.artworkUrl || playerEl.dataset.defaultArt;
                 coverArtEl.style.backgroundImage = `url('${artUrl}')`;
+                
+                // Logo kontrolü
+                if (artUrl.includes('logo.png')) {
+                    coverArtEl.classList.add('is-logo');
+                } else {
+                    coverArtEl.classList.remove('is-logo');
+                }
+            } else {
+                // Fallback veriler
+                trackTitleEl.textContent = "Canlı Yayın";
+                trackArtistEl.textContent = "Çorlu FM";
+                listenerCountEl.textContent = "0";
+                stationNameEl.textContent = "Çorlu FM";
+                coverArtEl.style.backgroundImage = `url('${playerEl.dataset.defaultArt}')`;
+                coverArtEl.classList.add('is-logo');
             }
         } catch (error) {
-            console.log('Veri güncellenemedi:', error);
+            // Fallback veriler
+            trackTitleEl.textContent = "Canlı Yayın";
+            trackArtistEl.textContent = "Çorlu FM";
+            listenerCountEl.textContent = "0";
+            stationNameEl.textContent = "Çorlu FM";
         }
     };
 
@@ -582,9 +809,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             playToggleEl.innerHTML = '&#9658;';
             isPlaying = false;
         } else {
-            radioAudioEl.play().catch(error => {
-                console.log('Otomatik çalma engellendi:', error);
-            });
+            radioAudioEl.play().catch(() => {});
             playToggleEl.innerHTML = '&#10074;&#10074;';
             isPlaying = true;
         }
@@ -625,7 +850,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     // Volume control
     const updateVolume = (volume) => {
         radioAudioEl.volume = volume / 100;
-        radioAudioEl.muted = false; // Volume değiştiğinde unmute yap
+        radioAudioEl.muted = false;
         if (volume > 0) {
             isMuted = false;
             muteButtonEl.textContent = '🔊';
@@ -643,41 +868,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     muteButtonEl.addEventListener('click', toggleMute);
     volumeSliderEl.addEventListener('input', (e) => updateVolume(e.target.value));
 
-    // Auto-play on load
-    window.addEventListener('load', () => {
-        // Ses seviyesini ayarla
-        radioAudioEl.volume = 1.0;
-        
-        // Otomatik çalmayı dene (muted ile başla)
-        const tryAutoPlay = () => {
-            radioAudioEl.muted = true; // Muted ile başla
-            radioAudioEl.play().then(() => {
-                console.log('Otomatik çalma başarılı (muted)');
-                // 1 saniye sonra unmute yap
-                setTimeout(() => {
-                    radioAudioEl.muted = false;
-                    playToggleEl.innerHTML = '&#10074;&#10074;';
-                    isPlaying = true;
-                    console.log('Ses açıldı');
-                }, 1000);
-            }).catch(error => {
-                console.log('Otomatik çalma engellendi:', error);
-                // Kullanıcı etkileşimi bekle
-                document.addEventListener('click', () => {
-                    radioAudioEl.muted = false;
-                    radioAudioEl.play().then(() => {
-                        playToggleEl.innerHTML = '&#10074;&#10074;';
-                        isPlaying = true;
-                    });
-                }, { once: true });
-            });
-        };
-        
-        // Hemen dene
-        tryAutoPlay();
-    });
-
-    // Update data every 10 seconds
+    // İlk yüklemede veriyi çek
     updateData();
     setInterval(updateData, 10000);
 
