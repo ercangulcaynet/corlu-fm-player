@@ -28,12 +28,31 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             $title = $rawSong;
         }
         
+        // iTunes API'den albüm kapağı al
+        $artworkUrl = null;
+        if (!empty($title) && $title !== 'CORLU FM' && $artist !== 'CORLU FM') {
+            try {
+                $itunesQuery = urlencode($title);
+                $itunesUrl = "https://itunes.apple.com/search?term={$itunesQuery}&media=music&limit=1";
+                $itunesData = @file_get_contents($itunesUrl);
+                if ($itunesData) {
+                    $itunesJson = json_decode($itunesData, true);
+                    if (!empty($itunesJson['results']) && !empty($itunesJson['results'][0]['artworkUrl100'])) {
+                        $artworkUrl = str_replace('100x100bb.jpg', '512x512bb.jpg', $itunesJson['results'][0]['artworkUrl100']);
+                    }
+                }
+            } catch (Exception $e) {
+                // iTunes API hatası, devam et
+            }
+        }
+        
         $data = [
             'title' => $title,
             'artist' => $artist,
             'listeners' => $listeners,
             'status' => 'Canlı Yayın',
-            'timestamp' => time()
+            'timestamp' => time(),
+            'artworkUrl' => $artworkUrl
         ];
         
         echo json_encode([
