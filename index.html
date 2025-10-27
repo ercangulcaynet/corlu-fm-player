@@ -2,9 +2,12 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="Çorlu FM Canlı Radyo - Tüm şarkılar, haberler ve müzik.">
     <title>Çorlu FM - Canlı Radyo</title>
+    <link rel="icon" type="image/x-icon" href="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png">
     <style>
         body {
             margin: 0;
@@ -63,7 +66,6 @@
     <div class="iframe-container">
         <iframe 
             id="playerFrame"
-            src="canli-yayin.php" 
             allow="autoplay; fullscreen"
             allowfullscreen>
         </iframe>
@@ -73,10 +75,16 @@
         const iframe = document.getElementById('playerFrame');
         const loading = document.getElementById('loading');
         
+        // Development/Production URL kontrolü
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const phpUrl = isLocalhost ? 'http://localhost:8000/canli-yayin.php' : 'https://kolaypanel.com/canli-yayin.php';
+        
+        iframe.src = phpUrl;
+        
         // Timeout kontrolü (10 saniye)
         const timeout = setTimeout(() => {
             if (!loading.classList.contains('hidden')) {
-                loading.innerHTML = '⚠️ Yüklenme uzun sürüyor. PHP sunucunuzun canlı-yayin.php dosyasını host ettiğinden emin olun.';
+                loading.innerHTML = '⚠️ PHP sunucuya bağlanılamıyor.<br>https://kolaypanel.com/canli-yayin.php adresinin çalıştığından emin olun.';
                 loading.classList.add('error');
             }
         }, 10000);
@@ -89,7 +97,7 @@
         // Iframe yüklenme hatası
         iframe.addEventListener('error', () => {
             clearTimeout(timeout);
-            loading.innerHTML = '❌ Player yüklenemedi. PHP dosyasının sunucuda çalıştırıldığından emin olun.';
+            loading.innerHTML = '❌ Player yüklenemedi.<br>PHP dosyasının sunucuda çalıştırıldığından emin olun.';
             loading.classList.add('error');
         });
     </script>

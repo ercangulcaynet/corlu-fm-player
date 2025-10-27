@@ -5,30 +5,37 @@ Modern, responsive ve tam özellikli canlı radyo player uygulaması.
 ## Özellikler
 
 - 🎵 **Canlı Yayın**: Gerçek zamanlı radyo yayını
-- 🎨 **Modern Tasarım**: Spotify tarzı karanlık tema
-- 🌓 **Dark/Light Mode**: Tema değiştirici
-- 📱 **Mobile Optimized**: Mobil için optimize edilmiş
-- 🔊 **Ses Kontrolü**: Mute ve ses seviyesi kontrolü
-- 📊 **Dinleyici Bilgisi**: Anlık dinleyici sayısı
+- 🎨 **Modern Tasarım**: Spotify tarzı karanlık/açık tema
+- 🌓 **Dark/Light Mode**: Otomatik tema değiştirici
+- 📱 **Mobile Optimized**: Tam mobil optimize
+- 🔊 **Ses Kontrolü**: SVG ikonlu mute ve ses seviyesi
+- 📊 **Dinleyici Bilgisi**: Anlık ve en çok dinleyici sayısı
 - 🎨 **Albüm Kapağı**: iTunes API ile otomatik albüm kapağı
+- 🎯 **ON AIR Badge**: Kırmızı, kalın, parlayan badge
+- 📺 **Stereo Indicator**: Dinamik kırmızı/standart renk
+- 🔧 **Reklam Temizleme**: Otomatik ID temizleme
 - ⌨️ **Kısayollar**: Space (Play/Pause), F (Fullscreen), M (Mute)
+- 🌐 **Akıllı Deployment**: Localhost ve Production otomatik algılama
 
 ## Dosyalar
 
-- `index.html` - GitHub Pages wrapper (iframe ile PHP dosyasını çağırır)
+- `index.html` - GitHub Pages wrapper (akıllı URL seçimi ile PHP dosyasını çağırır)
 - `canli-yayin.php` - Tek dosya player (PHP backend + frontend)
-- `player.html` - Standalone HTML player (eski)
 
 ## Kullanım
 
 ### PHP Sunucu ile (Önerilen)
 
 1. `canli-yayin.php` dosyasını PHP destekleyen sunucuya yükleyin
-2. `index.html` dosyasını düzenleyin ve iframe src'yi PHP sunucunuzun URL'sine ayarlayın
+2. `index.html` otomatik olarak localhost veya production sunucusunu algılar
 3. `index.html` dosyasını GitHub Pages'de yayınlayın
 
+**Akıllı URL Seçimi:**
+- **Localhost'ta:** `index.html` → `localhost:8000/canli-yayin.php`
+- **GitHub Pages'de:** `index.html` → `kolaypanel.com/canli-yayin.php`
+
 Örnek deployment:
-- PHP dosyası: `https://yourphphost.com/corlu-fm-player/canli-yayin.php`
+- PHP dosyası: `https://kolaypanel.com/canli-yayin.php`
 - GitHub Pages: `https://yourusername.github.io/corlu-fm-player`
 
 ### Sadece PHP Sunucu
@@ -38,18 +45,25 @@ Modern, responsive ve tam özellikli canlı radyo player uygulaması.
 
 ## Son Güncellemeler
 
+### v2.2.0 - Reklam Temizleme & SVG İkonlar
+- ✅ Reklam ID'leri otomatik temizleniyor (parantez içi sayılar kaldırılıyor)
+- ✅ SVG ikonlar (emoji yerine profesyonel görünüm)
+- ✅ Akıllı URL seçimi (localhost/production otomatik algılama)
+- ✅ Title Case uygulama (Türkçe karakter desteği)
+- ✅ Bağlaçlar küçük kalıyor ("ve", "ile", vb.)
+
+### v2.1.0 - Yeni Özellikler
+- ✅ "ON AIR" badge (kırmızı, kalın)
+- ✅ Dinleyici sayıları (Anlık ve En Çok Dinleyici)
+- ✅ Footer (Network.com.tr logo)
+- ✅ Stereo indicator (dinamik kırmızı renk)
+
 ### v2.0.0 - Mobil Optimize & PHP Backend
-- ✅ Dark/Light mode tema değiştirici eklendi
-- ✅ Mobil için optimize edildi (touch-friendly controls)
+- ✅ Dark/Light mode tema değiştirici
+- ✅ Mobil için optimize edildi
 - ✅ PHP backend ile albüm kapağı desteği
 - ✅ Tek dosya player (canli-yayin.php)
 - ✅ GitHub Pages + PHP sunucu hibrit deployment
-
-### v1.1.0
-- ✅ XML verilerini GitHub Pages'de çalışacak şekilde CORS proxy ile güncelleme
-- ✅ Mobil görünümde "Canlı Yayın" badge'i ortalandı
-- ✅ Alternatif CORS proxy'ler eklendi (fallback sistemi)
-- ✅ Responsive tasarım iyileştirildi
 
 ## Deployment Örnekleri
 
@@ -73,13 +87,12 @@ index.html iframe ile PHP dosyasını çağırır.
 
 ## Teknolojiler
 
-- PHP 8+ (Backend)
-- HTML5
-- CSS3
-- Vanilla JavaScript
-- iTunes Search API
-- Audio Element (Web Audio API)
-- XML Parsing
+- **Backend:** PHP 8+ (XML parsing, iTunes API, title case)
+- **Frontend:** HTML5, CSS3, Vanilla JavaScript
+- **APIs:** iTunes Search API (albüm kapağı)
+- **Audio:** HTML5 Audio Element
+- **Features:** Dark/Light mode, Responsive design, SVG icons
+- **Deployment:** GitHub Pages + PHP Host (hibrit sistem)
 
 ## Lisans
 
