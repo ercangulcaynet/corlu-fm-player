@@ -28,14 +28,14 @@ Modern, responsive ve tam özellikli canlı radyo player uygulaması.
 
 ## Son Güncelleme
 
-**v2.2.0** - Şubat 2025
-- Reklam ID'leri otomatik temizleme
-- SVG ikonlar
-- Title Case uygulama (Türkçe karakter desteği)
-- Bağlaçlar küçük kalıyor ("ve", "ile")
-- Dinleyici sayıları (Anlık ve En Çok)
-- ON AIR badge ve Stereo indicator
-- Akıllı URL seçimi (localhost/production)
+**v2.3.0** - Şubat 2025
+- ON AIR badge yenilendi (koyu bg, beyaz border, oynatma sırasında kırmızı)
+- STEREO büyük harf, playing'de kırmızı indicator
+- Mobilde play-toggle daha büyük (70px)
+- Şarkı/sanatçı font kalınlığı artırıldı
+- Footer düzeni güncellendi (Çorlu FM + The Network logoları)
+- Footer metinleri 2 satır formatı
+- Info-card hizalama sorunu düzeltildi
 
 ## Teknolojiler
 

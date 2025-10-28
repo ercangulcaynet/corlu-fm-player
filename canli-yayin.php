@@ -447,7 +447,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px;
+            padding: 8px 8px;
             background: rgba(29,185,84,0.15);
             border: 1px solid rgba(29,185,84,0.3);
             border-radius: 24px;
@@ -459,14 +459,30 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
         .badge.on-air {
             display: block;
-            background: transparent;
-            border: none;
-            padding: 8px 0;
-            font-size: 16px;
+            background: #000000;
+            font-size: 18px;
             font-weight: 900;
-            letter-spacing: 2px;
-            color: #ff0000;
+            color: var(--text-secondary);
             text-transform: uppercase;
+            width: fit-content;
+            border: 6px solid #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+        }
+
+        body.light-mode .badge.on-air {
+            background: #ffffff;
+            border: 6px solid #000000;
+            color: #000000;
+        }
+
+        .badge.on-air.playing {
+            color: #ff0000;
+        }
+
+        body.light-mode .badge.on-air.playing {
+            color: #ff0000;
         }
 
         .pulse-dot {
@@ -490,7 +506,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         .track-meta h1 {
             font-size: clamp(24px, 4vw, 42px);
             line-height: 1.05;
-            font-weight: 500;
+            font-weight: 700;
             margin: 0;
             background: linear-gradient(135deg, #ffffff, #b3b3b3);
             -webkit-background-clip: text;
@@ -507,7 +523,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
         .track-meta h2 {
             font-size: clamp(16px, 2.5vw, 24px);
-            font-weight: 400;
+            font-weight: 600;
             color: var(--text-secondary);
             margin: 0;
         }
@@ -677,6 +693,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
             text-align: left;
             transition: background 0.3s ease, border 0.3s ease;
         }
@@ -693,6 +712,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             margin-bottom: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            width: 100%;
         }
 
         .info-card strong {
@@ -700,6 +720,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             font-size: 18px;
             font-weight: 600;
             color: var(--text-primary);
+            width: 100%;
         }
 
         .player.fullscreen {
@@ -750,15 +771,61 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             margin-top: 24px;
         }
 
+        .footer-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .footer-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-start;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .footer-logo-small {
+            height: 38px;
+            border-radius: 5px;
+            display: block;
+        }
+
+        .footer-divider {
+            width: 1px;
+            height: 75px;
+            background: var(--text-secondary);
+            opacity: 0.3;
+        }
+
+        .footer-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .footer-logo-network {
+            height: 38px;
+            border-radius: 5px;
+            display: block;
+        }
+
         .footer-link {
             display: inline-block;
             text-decoration: none;
-            margin-bottom: 8px;
             transition: transform 0.3s ease, opacity 0.3s ease;
+            color: inherit;
         }
 
         .footer-link:hover {
-            transform: scale(1.05);
             opacity: 0.8;
         }
 
@@ -782,6 +849,30 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
             .player {
                 padding: 16px;
+            }
+
+            .footer-content {
+                flex-direction: row;
+                text-align: center;
+                gap: 12px;
+            }
+
+            .footer-left {
+                justify-content: center;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .footer-right {
+                justify-content: center;
+                flex-direction: row;
+                gap: 8px;
+            }
+
+            .footer-divider {
+                display: block;
+                height: 50px;
             }
 
             .theme-toggle {
@@ -816,9 +907,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             }
 
             .play-toggle {
-                width: 64px;
-                height: 64px;
-                font-size: 26px;
+                width: 70px;
+                height: 70px;
+                font-size: 30px;
             }
 
             .controls {
@@ -866,9 +957,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             }
 
             .play-toggle {
-                width: 60px;
-                height: 60px;
-                font-size: 24px;
+                width: 68px;
+                height: 68px;
+                font-size: 28px;
             }
 
             .secondary {
@@ -897,7 +988,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
                  style="background-image: url('http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo2.jpg');">
         </section>
         <section class="track-meta">
-            <span class="badge on-air">
+            <span class="badge on-air" id="onAirBadge">
                 ON AIR
             </span>
             <h1 id="trackTitle">Canlı Yayın</h1>
@@ -921,7 +1012,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
                 </div>
                 <div class="live-indicator" id="stereoIndicator">
                     <span class="pulse-dot"></span>
-                    Stereo
+                    STEREO
                 </div>
             </div>
             <div class="info-grid">
@@ -947,10 +1038,23 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 </main>
 
 <footer class="player-footer">
-    <a href="https://thenetwork.com.tr" target="_blank" rel="noopener noreferrer" class="footer-link">
-        <img src="https://thenetwork.com.tr/wp-content/uploads/2025/10/thenetworktr_profile_bg.png" alt="Network.com.tr" class="footer-logo">
-    </a>
-    <p class="footer-text">Tasarım ve Geliştirme</p>
+    <div class="footer-content">
+        <div class="footer-left">
+            <a href="https://corlufm.com" target="_blank" rel="noopener noreferrer" class="footer-link">
+                <img src="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo2.jpg" alt="Çorlu FM" class="footer-logo-small">
+            </a>
+            <span>Copyright Çorlu FM.</span>
+            <span>All rights reserved.</span>
+        </div>
+        <div class="footer-divider"></div>
+        <div class="footer-right">
+            <a href="https://thenetwork.com.tr" target="_blank" rel="noopener noreferrer" class="footer-link">
+                <img src="https://thenetwork.com.tr/wp-content/uploads/2025/10/thenetworktr_profile_bg.png" alt="The Network" class="footer-logo-network">
+            </a>
+            <span>design by</span>
+            <span>The Network</span>
+        </div>
+    </div>
 </footer>
 
 <script>
@@ -968,6 +1072,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     const volumeSliderEl = document.getElementById('volumeSlider');
     const themeToggleEl = document.getElementById('themeToggle');
     const stereoIndicatorEl = document.getElementById('stereoIndicator');
+    const onAirBadgeEl = document.getElementById('onAirBadge');
 
     let isPlaying = false;
     let isFullscreen = false;
@@ -1118,11 +1223,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             playToggleEl.innerHTML = '&#9658;';
             isPlaying = false;
             stereoIndicatorEl.classList.remove('playing');
+            onAirBadgeEl.classList.remove('playing');
         } else {
             radioAudioEl.play().catch(() => {});
             playToggleEl.innerHTML = '&#10074;&#10074;';
             isPlaying = true;
             stereoIndicatorEl.classList.add('playing');
+            onAirBadgeEl.classList.add('playing');
         }
     };
 
@@ -1182,14 +1289,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     // Audio event listeners
     radioAudioEl.addEventListener('play', () => {
         stereoIndicatorEl.classList.add('playing');
+        onAirBadgeEl.classList.add('playing');
     });
     
     radioAudioEl.addEventListener('pause', () => {
         stereoIndicatorEl.classList.remove('playing');
+        onAirBadgeEl.classList.remove('playing');
     });
     
     radioAudioEl.addEventListener('ended', () => {
         stereoIndicatorEl.classList.remove('playing');
+        onAirBadgeEl.classList.remove('playing');
     });
 
     // İlk yüklemede veriyi çek
