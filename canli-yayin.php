@@ -1,4 +1,18 @@
 <?php
+/**
+ * Çorlu FM Radio Player
+ * 
+ * Copyright (c) 2024 Çorlu FM
+ * Design & Development by The Network
+ * 
+ * Bu kod özel mülkiyettir ve korunmaktadır.
+ * Yetkisiz kullanım, kopyalama, değiştirme veya dağıtım yasaktır.
+ * 
+ * @author The Network
+ * @copyright 2024 Çorlu FM
+ * @license Proprietary - All Rights Reserved
+ */
+
 // PHP Backend - XML verisi ve albüm kapağı çekme
 
 // Türkçe karakterleri destekleyen title case fonksiyonu
@@ -92,16 +106,27 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         $title = preg_replace('/\s*\([0-9]+\)$/', '', $title);
         $artist = preg_replace('/\s*\([0-9]+\)$/', '', $artist);
         
-        // "ÇOrlu" ve "Fm" gibi hatalı kelimeleri düzelt
-        // Eğer metin "Çorlu" içeriyorsa, tüm varyasyonlarını "Çorlu FM" yap
-        if (stripos($title, 'corlu') !== false || stripos($title, 'çorlu') !== false) {
+        // Artist "Çorlu FM" ise değiştir
+        $isCorluFMArtist = false;
+        if (stripos($artist, 'corlu fm') !== false || stripos($artist, 'çorlu fm') !== false ||
+            $artist === 'ÇORLU FM' || $artist === 'Çorlu FM') {
+            $artist = 'Çorlu FM';
+            $isCorluFMArtist = true;
+            $isDefaultArtwork = true;
+        }
+        
+        // Title'dan "CORLU FM" kelimelerini temizle (sadece gereksiz tekrarları kaldır)
+        // "29 EKIM BAYRAMIMIZ KUTLU OLSUN CORLU FM" → "29 Ekim Bayramimiz Kutlu Olsun"
+        $title = preg_replace('/\bCORLU FM\b/i', '', $title);
+        $title = preg_replace('/\bÇORLU FM\b/i', '', $title);
+        $title = trim($title);
+        
+        // Eğer artist Çorlu FM ise ve title boşsa veya sadece "Çorlu FM" ise
+        if ($isCorluFMArtist && (empty($title) || strtolower($title) === 'çorlu fm')) {
             $title = 'Çorlu FM';
             $isDefaultArtwork = true;
         }
-        if (stripos($artist, 'corlu') !== false || stripos($artist, 'çorlu') !== false) {
-            $artist = 'Çorlu FM';
-            $isDefaultArtwork = true;
-        }
+        
         if (stripos($rawSong, 'corlu') !== false || stripos($rawSong, 'çorlu') !== false) {
             $isDefaultArtwork = true;
         }
@@ -116,7 +141,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         $artworkUrl = null;
         if ($isDefaultArtwork) {
             // Çorlu FM reklamı/haberlerinde varsayılan logo kullan
-            $artworkUrl = 'http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo2.jpg';
+            $artworkUrl = 'https://kolaypanel.s3.eu-central-1.amazonaws.com/hello/uploads/2025/10/29082743/corlu-fm-logo-2.webp';
         } else if (!empty($title) && $title !== 'CORLU FM' && $artist !== 'CORLU FM' && $artist !== $title) {
             try {
                 // Önce artist + title ile ara (doğru eşleşme)
@@ -195,6 +220,156 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     
     exit;
 }
+
+// Son çalan şarkıları çek
+if (isset($_GET['action']) && $_GET['action'] === 'getRecentlyPlayed') {
+    header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
+    
+    try {
+        $playedUrl = 'https://sssx.radyosfer.com/corlufm/played?sid=1';
+        $htmlContent = @file_get_contents($playedUrl);
+        
+        if ($htmlContent === false) {
+            throw new Exception('Son çalan şarkılar yüklenemedi');
+        }
+        
+        // HTML parser ile çek
+        $tracks = [];
+        
+        // DOMDocument kullan
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        @$dom->loadHTML(mb_convert_encoding($htmlContent, 'HTML-ENTITIES', 'UTF-8'));
+        libxml_clear_errors();
+        
+        $xpath = new DOMXPath($dom);
+        
+        // Tablo satırlarını al (header satırları + Current Song'dan sonra gelen)
+        $rows = $xpath->query("//table//tr[position()>2]");
+        
+        foreach ($rows as $rowIndex => $row) {
+            $cells = $xpath->query("./td", $row);
+            
+            if ($cells->length >= 2) {
+                // İkinci kolonda şarkı adı var
+                $songTitle = trim(strip_tags($cells->item(1)->textContent));
+                
+                // "Current Song" içeren satırı atla (3. kolon)
+                if ($cells->length >= 3) {
+                    $thirdCell = trim(strip_tags($cells->item(2)->textContent));
+                    if (stripos($thirdCell, 'Current Song') !== false) {
+                        continue;
+                    }
+                }
+                
+                // Boş olanları atla
+                if (empty($songTitle)) {
+                    continue;
+                }
+                
+                // "CORLU FM" içerenleri filtrele
+                if (stripos($songTitle, 'CORLU FM') !== false || 
+                    stripos($songTitle, 'ÇORLU FM') !== false ||
+                    stripos($songTitle, 'Çorlu') !== false ||
+                    stripos($songTitle, 'ÇORLU') !== false) {
+                    continue;
+                }
+                
+                // "Saat_" ile başlayanları filtrele
+                if (stripos($songTitle, 'Saat_') === 0) {
+                    continue;
+                }
+                
+                // Parantez içinde sadece sayı olanları filtrele (reklam ID'leri)
+                // Örnek: "ASDASD (6180)" → Atla
+                if (preg_match('/\s*\([0-9]+\)$/', $songTitle)) {
+                    continue;
+                }
+                
+                // Mesaj metinlerini filtrele (KUTLU OLSUN dahil tüm mesajlar son çalanda görünmez)
+                $mesajListesi = [
+                    'Geceler Diler', 'Sabahlar Diler', 'Günler Diler',
+                    'Iyi Geceler', 'İyi Geceler', 'İyi Sabahlar', 'İyi Günler',
+                    'Iyi Geceler Diler', 'Iyi Sabahlar Diler', 'Iyi Günler Diler',
+                    'Iyı Geceler Diler', 'İyi Sabahlar Diler', 'İyi Günler Diler',
+                    'Kutlu Olsun', 'KUTLU OLSUN', 'Kutlu Olsun!',
+                    'Good Morning', 'Good Night', 'Have A Nice Day'
+                ];
+                
+                $isMesaj = false;
+                foreach ($mesajListesi as $mesaj) {
+                    if (stripos($songTitle, $mesaj) !== false) {
+                        $isMesaj = true;
+                        break;
+                    }
+                }
+                if ($isMesaj) {
+                    continue;
+                }
+                
+                // Artist ve title'ı parse et
+                $delimiters = [' - ', ' – ', ' — ', ' | ', ' / '];
+                $parsed = false;
+                $artist = '';
+                $title = '';
+                
+                foreach ($delimiters as $delimiter) {
+                    if (strpos($songTitle, $delimiter) !== false) {
+                        $parts = explode($delimiter, $songTitle, 2);
+                        $artist = trim($parts[0]);
+                        $title = trim($parts[1]);
+                        $parsed = true;
+                        break;
+                    }
+                }
+                
+                // Delimiter yoksa atla (geçersiz format)
+                if (!$parsed) {
+                    continue;
+                }
+                
+                // REKLAM TESPİTİ: Parantez içindeki sayıları temizle
+                $title = preg_replace('/\s*\([0-9]+\)$/', '', $title);
+                $artist = preg_replace('/\s*\([0-9]+\)$/', '', $artist);
+                
+                // Title case uygula
+                $title = toTitleCase($title);
+                $artist = toTitleCase($artist);
+                
+                // Artist "Çorlu FM" ise listeleme
+                if (stripos($artist, 'corlu fm') !== false || 
+                    stripos($artist, 'çorlu fm') !== false ||
+                    stripos($artist, 'corlu') !== false ||
+                    $artist === 'Çorlu FM') {
+                    continue;
+                }
+                
+                // Sadece title varsa ekle (artist yoksa boş kalmalı)
+                if (!empty($title) && $title !== 'CORLU FM' && $title !== 'ÇORLU FM') {
+                    $tracks[] = [
+                        'title' => $title,
+                        'artist' => $artist
+                    ];
+                }
+            }
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $tracks
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage(),
+            'data' => []
+        ]);
+    }
+    
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -204,9 +379,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#121212">
     <title>Çorlu FM · Canlı Radyo Player</title>
-    <link rel="preconnect" href="https://fonts.cdnfonts.com">
-    <link href="https://fonts.cdnfonts.com/css/sofia-pro" rel="stylesheet">
-    <link rel="icon" type="image/x-icon" href="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo.png">
+    
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://kolaypanel.s3.eu-central-1.amazonaws.com">
+    <link rel="dns-prefetch" href="https://sssx.radyosfer.com">
+    <link rel="dns-prefetch" href="https://itunes.apple.com">
+    
+    <link rel="icon" type="image/webp" href="https://kolaypanel.s3.eu-central-1.amazonaws.com/hello/uploads/2025/10/29082743/corlu-fm-logo-2.webp">
+    
+    <!-- System fonts - no external font loading -->
     <style>
         :root {
             color-scheme: dark;
@@ -236,7 +417,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
         body {
             background: radial-gradient(circle at top, #1d1d1d, #090909 65%);
-            font-family: 'Sofia Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
             color: var(--text-primary);
             min-height: 100vh;
             display: flex;
@@ -306,6 +487,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             -webkit-backdrop-filter: blur(20px) saturate(180%);
             transition: transform 0.4s ease, background 0.3s ease;
             overflow: hidden;
+            content-visibility: auto;
+            contain-intrinsic-size: 600px;
         }
 
         /* Video yüklüyse daha fazla blur */
@@ -389,6 +572,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             flex-shrink: 0;
             width: clamp(200px, 25vw, 320px);
             height: clamp(200px, 25vw, 320px);
+            min-height: 200px;
+            aspect-ratio: 1;
             border-radius: var(--border-radius);
             background-color: #2a2a2a;
             background-size: contain;
@@ -399,6 +584,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             overflow: hidden;
             transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
+
 
         body.light-mode .cover-art {
             background-color: #f0f0f0;
@@ -508,6 +694,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             line-height: 1.05;
             font-weight: 700;
             margin: 0;
+            min-height: 44px;
             background: linear-gradient(135deg, #ffffff, #b3b3b3);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -526,6 +713,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             font-weight: 600;
             color: var(--text-secondary);
             margin: 0;
+            min-height: 28px;
         }
 
         .controls {
@@ -697,6 +885,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             flex-direction: column;
             align-items: flex-start;
             text-align: left;
+            min-height: 80px;
             transition: background 0.3s ease, border 0.3s ease;
         }
 
@@ -721,6 +910,178 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             font-weight: 600;
             color: var(--text-primary);
             width: 100%;
+            min-height: 24px;
+        }
+
+        /* Popup Modal */
+        .popup-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .popup-content {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius);
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            animation: popupFadeIn 0.3s ease;
+        }
+
+        body.light-mode .popup-content {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        @keyframes popupFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .popup-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        body.light-mode .popup-header {
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .popup-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .popup-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 32px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+
+        .popup-close:hover {
+            color: var(--text-primary);
+            transform: rotate(90deg);
+        }
+
+        .popup-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .popup-track-item {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        body.light-mode .popup-track-item {
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .popup-track-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        body.light-mode .popup-track-item:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .popup-track-item:last-child {
+            border-bottom: none;
+        }
+
+        .popup-track-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .popup-track-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .popup-track-artist {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .spotify-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 10px;
+            background: #000000;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #1DB954;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+            flex-shrink: 0;
+        }
+
+        body.light-mode .spotify-button {
+            background: #000000;
+            border: 1px solid rgba(0,0,0,0.3);
+        }
+
+        .spotify-button:hover {
+            background: #1a1a1a;
+            border-color: #1DB954;
+            transform: translateY(-1px);
+        }
+
+        .spotify-button:active {
+            transform: translateY(0);
+        }
+
+        .spotify-button svg {
+            width: 16px;
+            height: 16px;
+            fill: #1DB954;
         }
 
         .player.fullscreen {
@@ -773,6 +1134,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
         .footer-content {
             display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .footer-top {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .footer-top a {
+            color: #821e61;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-top a:hover {
+            opacity: 0.8;
+        }
+
+        .footer-bottom {
+            display: flex;
             justify-content: center;
             align-items: center;
             gap: 20px;
@@ -790,6 +1178,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         }
 
         .footer-logo-small {
+            width: auto;
             height: 38px;
             border-radius: 5px;
             display: block;
@@ -813,6 +1202,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         }
 
         .footer-logo-network {
+            width: auto;
             height: 38px;
             border-radius: 5px;
             display: block;
@@ -852,27 +1242,47 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             }
 
             .footer-content {
-                flex-direction: row;
+                flex-direction: column;
                 text-align: center;
                 gap: 12px;
             }
 
+            .footer-bottom {
+                flex-direction: row;
+                gap: 12px;
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
             .footer-left {
                 justify-content: center;
-                flex-direction: row;
-                flex-wrap: wrap;
+                flex-direction: column;
                 gap: 8px;
+                align-items: center;
+                min-width: 0;
+                flex: 1 1 auto;
             }
 
             .footer-right {
                 justify-content: center;
-                flex-direction: row;
+                flex-direction: column;
                 gap: 8px;
+                align-items: center;
+                min-width: 0;
+                flex: 1 1 auto;
+            }
+
+            .footer-left span,
+            .footer-right span {
+                white-space: nowrap;
+                font-size: 10px;
             }
 
             .footer-divider {
                 display: block;
                 height: 50px;
+                width: 1px;
             }
 
             .theme-toggle {
@@ -973,7 +1383,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 <main class="player" id="radioPlayer"
       data-endpoint="https://sssx.radyosfer.com/corlufm/stats?sid=1"
       data-stream="https://sssx.radyosfer.com/corlufm/stream"
-      data-default-art="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo2.jpg">
+      data-default-art="https://kolaypanel.s3.eu-central-1.amazonaws.com/hello/uploads/2025/10/29082743/corlu-fm-logo-2.webp">
     <button class="theme-toggle" id="themeToggle" aria-label="Tema Değiştir">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
@@ -985,7 +1395,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     </button>
     <div class="layout">
         <section class="cover-art" id="coverArt"
-                 style="background-image: url('http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo2.jpg');">
+                 style="background-image: url('https://kolaypanel.s3.eu-central-1.amazonaws.com/hello/uploads/2025/10/29082743/corlu-fm-logo-2.webp');">
         </section>
         <section class="track-meta">
             <span class="badge on-air" id="onAirBadge">
@@ -1024,9 +1434,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
                     <span>En Çok Dinleyici</span>
                     <strong id="peakListeners">0</strong>
                 </div>
-                <div class="info-card">
-                    <span>Radyo</span>
-                    <strong id="stationName">Çorlu FM</strong>
+                <div class="info-card" id="lastPlayedCard" style="cursor: pointer; position: relative;">
+                    <span>Son Çalan</span>
+                    <strong id="lastPlayedArtist">-</strong>
+                    <strong id="lastPlayedTitle" style="font-size: 14px; margin-top: 4px; opacity: 0.7;">-</strong>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
                 </div>
             </div>
         </section>
@@ -1039,9 +1458,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
 
 <footer class="player-footer">
     <div class="footer-content">
-        <div class="footer-left">
+        <div class="footer-top">
+            <a href="https://www.corlufm.com" target="_blank" rel="noopener noreferrer">www.corlufm.com</a>
+        </div>
+        <div class="footer-bottom">
+            <div class="footer-left">
             <a href="https://corlufm.com" target="_blank" rel="noopener noreferrer" class="footer-link">
-                <img src="http://www.corlufm.com/wp-content/themes/corlufm/assets/images/logo2.jpg" alt="Çorlu FM" class="footer-logo-small">
+                <img src="https://kolaypanel.s3.eu-central-1.amazonaws.com/hello/uploads/2025/10/29082743/corlu-fm-logo-2.webp" alt="Çorlu FM" class="footer-logo-small" width="auto" height="38">
             </a>
             <span>Copyright Çorlu FM.</span>
             <span>All rights reserved.</span>
@@ -1049,13 +1472,27 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         <div class="footer-divider"></div>
         <div class="footer-right">
             <a href="https://thenetwork.com.tr" target="_blank" rel="noopener noreferrer" class="footer-link">
-                <img src="https://thenetwork.com.tr/wp-content/uploads/2025/10/thenetworktr_profile_bg.png" alt="The Network" class="footer-logo-network">
+                <img src="https://thenetwork.com.tr/wp-content/uploads/2025/10/thenetworktr_profile_bg.png" alt="The Network" class="footer-logo-network" width="auto" height="38">
             </a>
             <span>design by</span>
             <span>The Network</span>
         </div>
+        </div>
     </div>
 </footer>
+
+<!-- Popup Modal -->
+<div id="popupModal" class="popup-modal" style="display: none;">
+    <div class="popup-content">
+        <div class="popup-header">
+            <h3>Son Çalan Şarkılar</h3>
+            <button class="popup-close" id="popupClose">&times;</button>
+        </div>
+        <div class="popup-body" id="popupBody">
+            <p style="text-align: center; color: var(--text-secondary);">Yükleniyor...</p>
+        </div>
+    </div>
+</div>
 
 <script>
     const playerEl = document.getElementById('radioPlayer');
@@ -1066,13 +1503,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     const trackArtistEl = document.getElementById('trackArtist');
     const listenerCountEl = document.getElementById('listenerCount');
     const peakListenersEl = document.getElementById('peakListeners');
-    const stationNameEl = document.getElementById('stationName');
     const coverArtEl = document.getElementById('coverArt');
     const muteButtonEl = document.getElementById('muteButton');
     const volumeSliderEl = document.getElementById('volumeSlider');
     const themeToggleEl = document.getElementById('themeToggle');
     const stereoIndicatorEl = document.getElementById('stereoIndicator');
     const onAirBadgeEl = document.getElementById('onAirBadge');
+    const lastPlayedCard = document.getElementById('lastPlayedCard');
+    const lastPlayedArtist = document.getElementById('lastPlayedArtist');
+    const lastPlayedTitle = document.getElementById('lastPlayedTitle');
+    const popupModal = document.getElementById('popupModal');
+    const popupClose = document.getElementById('popupClose');
+    const popupBody = document.getElementById('popupBody');
 
     let isPlaying = false;
     let isFullscreen = false;
@@ -1126,7 +1568,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
     }
 
     // Logo kontrolü
-    if (coverArtEl.style.backgroundImage.includes('logo.png') || coverArtEl.style.backgroundImage.includes('logo2.jpg')) {
+    if (coverArtEl.style.backgroundImage.includes('corlu-fm-logo') || coverArtEl.style.backgroundImage.includes('logo2')) {
         coverArtEl.classList.add('is-logo');
     }
 
@@ -1146,7 +1588,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         }
         
         const currentBg = coverArtEl.style.backgroundImage;
-        if (currentBg && (currentBg.includes('logo.png') || currentBg.includes('logo2.jpg'))) {
+        if (currentBg && (currentBg.includes('corlu-fm-logo') || currentBg.includes('logo2'))) {
             coverArtEl.classList.add('is-logo');
         } else {
             coverArtEl.classList.remove('is-logo');
@@ -1181,14 +1623,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
                 // Dinleyici sayıları
                 listenerCountEl.textContent = data.listeners || '0';
                 peakListenersEl.textContent = data.peakListeners || '0';
-                stationNameEl.textContent = "Çorlu FM";
                 
                 // Kapak görseli
                 const artUrl = data.artworkUrl || playerEl.dataset.defaultArt;
                 coverArtEl.style.backgroundImage = `url('${artUrl}')`;
                 
                 // Logo kontrolü
-                if (artUrl.includes('logo.png') || artUrl.includes('logo2.jpg')) {
+                if (artUrl.includes('corlu-fm-logo') || artUrl.includes('logo2')) {
                     coverArtEl.classList.add('is-logo');
                 } else {
                     coverArtEl.classList.remove('is-logo');
@@ -1202,7 +1643,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
                 trackArtistEl.textContent = "Çorlu FM";
                 listenerCountEl.textContent = "0";
                 peakListenersEl.textContent = "0";
-                stationNameEl.textContent = "Çorlu FM";
                 coverArtEl.style.backgroundImage = `url('${playerEl.dataset.defaultArt}')`;
                 coverArtEl.classList.add('is-logo');
             }
@@ -1212,7 +1652,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
             trackArtistEl.textContent = "Çorlu FM";
             listenerCountEl.textContent = "0";
             peakListenersEl.textContent = "0";
-            stationNameEl.textContent = "Çorlu FM";
         }
     };
 
@@ -1302,9 +1741,156 @@ if (isset($_GET['action']) && $_GET['action'] === 'getStationData') {
         onAirBadgeEl.classList.remove('playing');
     });
 
+    // Son çalan şarkıları çek
+    let recentlyPlayedTracks = [];
+    
+    const fetchRecentlyPlayed = async () => {
+        try {
+            const response = await fetch('?action=getRecentlyPlayed');
+            const result = await response.json();
+            
+            if (result.success && result.data && result.data.length > 0) {
+                recentlyPlayedTracks = result.data;
+                
+                // İlk şarkıyı kutucukta göster
+                if (result.data[0]) {
+                    const artist = result.data[0].artist || 'Çorlu FM';
+                    const title = result.data[0].title || '-';
+                    
+                    // Artist varsa göster, yoksa gizle
+                    if (result.data[0].artist) {
+                        lastPlayedArtist.textContent = artist;
+                        lastPlayedArtist.style.display = 'block';
+                    } else {
+                        lastPlayedArtist.style.display = 'none';
+                    }
+                    
+                    lastPlayedTitle.textContent = title;
+                }
+            }
+        } catch (error) {
+            console.error('Son çalan şarkılar yüklenemedi:', error);
+        }
+    };
+    
+    // Popup aç/kapa
+    const openPopup = () => {
+        popupModal.style.display = 'flex';
+        renderPopupContent();
+    };
+    
+    const closePopup = () => {
+        popupModal.style.display = 'none';
+    };
+    
+    const renderPopupContent = () => {
+        popupBody.innerHTML = ''; // Temizle
+        
+        if (recentlyPlayedTracks.length === 0) {
+            const emptyMsg = document.createElement('p');
+            emptyMsg.style.textAlign = 'center';
+            emptyMsg.style.color = 'var(--text-secondary)';
+            emptyMsg.textContent = 'Henüz şarkı çalınmamış.';
+            popupBody.appendChild(emptyMsg);
+            return;
+        }
+        
+        recentlyPlayedTracks.forEach(track => {
+            // Query oluştur
+            const searchQuery = track.artist && track.artist !== 'Çorlu FM' && track.artist
+                ? `${track.artist} ${track.title}` 
+                : track.title;
+            
+            // Item container
+            const item = document.createElement('div');
+            item.className = 'popup-track-item';
+            
+            // Info container (sol taraf)
+            const infoContainer = document.createElement('div');
+            infoContainer.className = 'popup-track-info';
+            
+            // Title
+            const title = document.createElement('div');
+            title.className = 'popup-track-title';
+            title.textContent = track.title;
+            infoContainer.appendChild(title);
+            
+            // Artist
+            const artist = document.createElement('div');
+            artist.className = 'popup-track-artist';
+            artist.textContent = track.artist || 'Çorlu FM';
+            infoContainer.appendChild(artist);
+            
+            item.appendChild(infoContainer);
+            
+            // Spotify Button (sağ taraf)
+            const button = document.createElement('button');
+            button.className = 'spotify-button';
+            button.dataset.query = searchQuery;
+            button.innerHTML = `
+                <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.361 1.56-.241.421-.78.599-1.44.36z"/></svg>
+                Spotify'da Dinle
+            `;
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openInSpotify(searchQuery);
+            });
+            item.appendChild(button);
+            
+            popupBody.appendChild(item);
+        });
+    };
+    
+    // Spotify deep link
+    const openInSpotify = (query) => {
+        // Query'yi encode et
+        const encodedQuery = encodeURIComponent(query);
+        
+        // Mobile detection
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            // Deep link kullan (uygulamayı aç)
+            const deepLink = `spotify:search:${encodedQuery}`;
+            window.location.href = deepLink;
+            
+            // Fallback: Uygulama yoksa web player
+            setTimeout(() => {
+                window.open(`https://open.spotify.com/search/${encodedQuery}`, '_blank');
+            }, 1000);
+        } else {
+            // Desktop: Yeni tab'da web player aç
+            window.open(`https://open.spotify.com/search/${encodedQuery}`, '_blank');
+        }
+    };
+    
+    // Event listeners
+    lastPlayedCard.addEventListener('click', openPopup);
+    popupClose.addEventListener('click', closePopup);
+    popupModal.addEventListener('click', (e) => {
+        if (e.target === popupModal) {
+            closePopup();
+        }
+    });
+    
     // İlk yüklemede veriyi çek
     updateData();
+    fetchRecentlyPlayed();
+    
+    // Şarkı değişiklikleri daha sık kontrol et (kritik)
     setInterval(updateData, 10000);
+    
+    // Son çalan şarkılar daha az sıklıkla güncelle (non-critical)
+    setInterval(() => {
+        // Sadece idle time'da çalış
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+                fetchRecentlyPlayed();
+            }, { timeout: 10000 });
+        } else {
+            fetchRecentlyPlayed();
+        }
+    }, 30000);
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
